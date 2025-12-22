@@ -4,6 +4,7 @@ from services.embedding import StudioLmEmbedding
 from services.ingest_service import RagIngestService
 from services.rag_service import RagQueryService
 from core.config import settings
+from fastapi import Request
 
 # ---- Infra wiring ----
 qdrant = QdrantClientProvider(
@@ -24,6 +25,10 @@ rag_svc = RagQueryService(
     embedder=embedder,
     collection=settings.qdrant_collection,
 )
+
+
+def _get_trace_id(request: Request) -> str:
+    return getattr(request.state, "trace_id", "APP")
 
 
 # ---- Endpoint DI wiring ----

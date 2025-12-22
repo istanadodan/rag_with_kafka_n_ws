@@ -20,6 +20,7 @@ class Settings(BaseModel):
         "kafka-0.kafka-headless.rag.svc.cluster.local:9092,kafka-1.kafka-headless.rag.svc.cluster.local:9092",
     )
     kafka_topic: str = os.getenv("KAFKA_TOPIC", "rag_ingestion_start")
+    kafka_group: str = os.getenv("KAFKA_CONSUMER_GROUP", "group-01")
 
 
 settings = Settings()

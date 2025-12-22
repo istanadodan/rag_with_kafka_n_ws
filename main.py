@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
         topic=settings.kafka_topic,
         message_handler=KafkaConsumerHandler(),
         bootstrap_servers=settings.kafka_bootstrap_servers,
-        group_id="group-01",
+        group_id=settings.kafka_group,
     )
     consumer.start()
     logger.info(
@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     consumer.stop()
-    logger.info("App shutdown complete.")
+    logger.info("App shutdown completed")
 
 
 def create_app() -> FastAPI:

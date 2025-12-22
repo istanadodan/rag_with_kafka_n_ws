@@ -3,10 +3,9 @@ from fastapi import APIRouter, Depends
 from fastapi import UploadFile, File
 from datetime import datetime
 from pathlib import Path
-import logging
 import shutil
 from core.config import settings
-from api.v1.deps import _get_ingest_service, _get_rag_service
+from api.v1.deps import _get_rag_service, _get_trace_id
 from models.rag import (
     RagPipelineResponse,
     QueryByRagResult,
@@ -16,6 +15,7 @@ from models.rag import (
 from services.kafka_service import KafkaProducerService
 from services.ingest_service import RagIngestService
 from services.rag_service import RagQueryService
+from utils.logging import logging, log_block_ctx
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -31,15 +31,16 @@ logger = logging.getLogger(__name__)
 
 @router.post("/rag-pipeline", response_model=RagPipelineResponse)
 def rag_pipeline(
-    upload_file: UploadFile = File(...),
-    svc: RagIngestService = Depends(_get_ingest_service),
+    trace_id: str = Depends(_get_trace_id), upload_file: UploadFile = File(...)
 ):
-    # 파일 타입 검증
+    # trace id 취득
     logger.info(
-        "content_type=%s, upload_file=%s",
+        "content_type=%s, upload_file=%s, trace_id=%s",
         upload_file.content_type,
         upload_file.filename,
+        trace_id,
     )
+    # 파일 타입 검증
     if (
         upload_file.content_type != "application/pdf"
         or upload_file.filename is None
@@ -54,21 +55,30 @@ def rag_pipeline(
         shutil.copyfileobj(upload_file.file, f)
 
     # 카프카 토픽 생성 - 파이프라인 개시
-    kafka_producer = KafkaProducerService(
-        bootstrap_servers=settings.kafka_bootstrap_servers
-    )
-    kafka_producer.send_message(
-        topic=settings.kafka_topic,
-        message={"key": "pdf", "value": os.path.splitext(upload_file.filename)[0]},
-    )
-    logger.info(f"complete to publish kafka topic({settings.kafka_topic})")
+    with log_block_ctx(logger, f"send kafka topic({settings.kafka_topic})"):
+        kafka_producer = KafkaProducerService(
+            bootstrap_servers=settings.kafka_bootstrap_servers
+        )
+        kafka_producer.send_message(
+            topic=settings.kafka_topic,
+            key="pdf",
+            value=dict(value=os.path.splitext(upload_file.filename)[0]),
+        )
 
-    return RagPipelineResponse(timestamp=datetime.now(), trace_id="1", result="ok")
+    return RagPipelineResponse(
+        timestamp=datetime.now(),
+        trace_id=trace_id,
+        result="OK",
+    )
 
 
 @router.post("/query_by_rag", response_model=QueryByRagResponse)
 def query_by_rag(
-    req: QueryByRagRequest, svc: RagQueryService = Depends(_get_rag_service)
+    req: QueryByRagRequest,
+    trace_id: str = Depends(_get_trace_id),
+    svc: RagQueryService = Depends(_get_rag_service),
 ):
-    result = svc.query(query=req.query, top_k=3)
-    return QueryByRagResponse(timestamp=datetime.now(), trace_id="1", result=result)
+    result = svc.query(query=req.query, top_k=req.top_k)
+    return QueryByRagResponse(
+        timestamp=datetime.now(), trace_id=trace_id, result=result
+    )

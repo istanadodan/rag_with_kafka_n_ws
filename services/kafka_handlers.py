@@ -1,7 +1,6 @@
 from typing import Any, Protocol
-from core.config import settings
-import logging
 import core.event_loop as el
+from utils.logging import logging, log_block_ctx
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +16,7 @@ class PipelineHandler(BaseHandler):
         from api.v1.deps import _get_ingest_service
 
         service: RagIngestService = _get_ingest_service()
-        service.ingest_stub(file_name=str(message))
+        service.ingest_stub(file_name=message.get("value", "_no_file"))
 
 
 class KafkaConsumerHandler(BaseHandler):
@@ -26,15 +25,18 @@ class KafkaConsumerHandler(BaseHandler):
         from utils.thread_utils import ThreadExecutor
         from services.kafka_handlers import PipelineHandler
 
-        _command = message.get("key", "")
-        _message = message.get("value", "")
-        handler = {"PDF": PipelineHandler}.get(_command, PipelineHandler)
+        with log_block_ctx(logger, "Kafka Consumer - Handler"):
+            _command = message.get("key", "")
+            _message = message.get("value", "")
+            logger.info(
+                "KafkaConsumerHandler handle command=%s, message=%s", _command, _message
+            )
 
-        if message.get("key") != "pdf":
-            thread_runner = ThreadExecutor(task=handler())
+            if _command.lower() == "pdf":
+                thread_runner = ThreadExecutor(task=PipelineHandler())
 
-            # thread에서 호출
-            thread_runner.submit(message=_message)
+                # thread에서 호출
+                thread_runner.submit(message=_message)
 
         # rag pipeline 호출
         # logger.info("Received message: %s and call service", message)

@@ -17,14 +17,17 @@ class ThreadExecutor:
         self._loop = el.MAIN_LOOP
         self._task = task
 
-    def submit(self, message: str):
+    def submit(self, message: str | None = None):
         if self._loop is None:
             raise RuntimeError("Main loop not initialized.")
 
         # thread에서 호출
         self._executor.submit(self._thread_task, self._loop, message)
 
-    def _thread_task(self, loop, message: str):
+    def shutdown(self):
+        self._executor.shutdown(wait=True)
+
+    def _thread_task(self, loop, message: str | None = None):
         # 1 blocking 작업처리
         logger.info("Received message: %s and call service", message)
         self._task.handle(message)
