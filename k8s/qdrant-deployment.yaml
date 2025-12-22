@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qdrantdb
+  namespace: rag
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qdrantdb-pod
+  template:
+    metadata:
+      labels:
+        app: qdrantdb-pod
+    spec:
+      # initContainers:
+      # - name: init-db
+      #   # image: alpine
+      #   # command: ['sh', '-c', 'apk add shadow; getent group docker || groupadd docker; chown :docker /var/lib/mysql']
+      #   image: busybox
+      #   # command: ['sh', '-c', 'chown :999 /var/lib/mysql; chmod -R 600 /var/lib/mysql']
+      #   command: ['sh', '-c', 'chown :999 /var/lib/mysql']
+      #   volumeMounts:
+      #   - name: db-storage
+      #     mountPath: /var/lib/mysql
+      containers:
+        - name: qdrantdb
+          image: qdrant/qdrant
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 6333
+            - containerPort: 6334
+          volumeMounts:
+            - name: db-storage
+              mountPath: /qdrant/storage
+          resources:
+            limits:
+              cpu: "500m" # 0.5 cpu core
+              memory: 500Mi # 512MB
+            requests:
+              cpu: "100m"
+              memory: 250Mi
+      volumes:
+        - name: db-storage
+          persistentVolumeClaim:
+            claimName: qdrantdb-pvc

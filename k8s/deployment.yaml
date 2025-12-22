@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-api
+  namespace: rag
+  labels:
+    app: rag-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rag-api
+  template:
+    metadata:
+      labels:
+        app: rag-api
+    spec:
+      containers:
+        - name: rag-api
+          image: local-registry:5000/rag-api:0.1.0
+          # workingDir: /app
+          # command: [ "python", "main.py"]
+          imagePullPolicy: Always
+          # imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          volumeMounts:
+            - name: rag-dir
+              mountPath: /mnt
+              # readOnly: true
+          # resources:
+          #   limits:
+          #     cpu: 100m
+          #     memory: 128Mi
+          #   requests:
+          #     cpu: 100m
+          env:
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: QDRANT_PORT
+              value: "6333"
+            - name: QDRANT_URL
+              value: "http://qdrantdb"
+            - name: QDRANT_COLLECTION
+              value: "it_tech_db"
+            - name: EMBEDDING_DIM
+              value: "768"
+            - name: QDRANT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: qdrant-api-key
+                  key: apiKey
+
+            # Kafka (현재 활성)
+            - name: KAFKA_ENABLED
+              value: "true"
+
+          # readinessProbe:
+          #   httpGet:
+          #     path: /healthz
+          #     port: 8000
+          #   initialDelaySeconds: 3
+          #   periodSeconds: 10
+
+          # livenessProbe:
+          #   httpGet:
+          #     path: /healthz
+          #     port: 8000
+          #   initialDelaySeconds: 10
+          #   periodSeconds: 15
+      volumes:
+        - name: rag-dir
+          hostPath:
+            path: /mnt/host/files
+            type: Directory
+          # persistentVolumeClaim:
+          #   claimName: rag-pvc
