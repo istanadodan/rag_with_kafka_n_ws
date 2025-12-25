@@ -3,17 +3,17 @@ from fastapi import APIRouter, Depends
 from fastapi import UploadFile, File
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 import shutil
 from core.config import settings
 from api.v1.deps import _get_rag_service, _get_trace_id
-from models.rag import (
+from schemas.rag import (
     RagPipelineResponse,
     QueryByRagResult,
     QueryByRagRequest,
     QueryByRagResponse,
 )
-from services.kafka_service import KafkaProducerService
-from services.ingest_service import RagIngestService
+from services.kafka_service import kafkaService
 from services.rag_service import RagQueryService
 from utils.logging import logging, log_block_ctx
 
@@ -55,14 +55,18 @@ def rag_pipeline(
         shutil.copyfileobj(upload_file.file, f)
 
     # 카프카 토픽 생성 - 파이프라인 개시
+    from schemas.stomp import StompFrameModel
+
     with log_block_ctx(logger, f"send kafka topic({settings.kafka_topic})"):
-        kafka_producer = KafkaProducerService(
-            bootstrap_servers=settings.kafka_bootstrap_servers
+        f = StompFrameModel(
+            command="pipeline-start",
+            headers={},
+            body=os.path.splitext(upload_file.filename)[0],
         )
-        kafka_producer.send_message(
+        kafkaService.send_message(
             topic=settings.kafka_topic,
-            key="pdf",
-            value=dict(value=os.path.splitext(upload_file.filename)[0]),
+            key=trace_id,
+            value=f.model_dump(),
         )
 
     return RagPipelineResponse(
@@ -78,7 +82,26 @@ def query_by_rag(
     trace_id: str = Depends(_get_trace_id),
     svc: RagQueryService = Depends(_get_rag_service),
 ):
-    result = svc.query(query=req.query, top_k=req.top_k)
+    """
+    Docstring for query_by_rag
+
+    :param req: Description
+    :type req: QueryByRagRequest
+    :param trace_id: Description
+    :type trace_id: str
+    :param svc: Description
+    :type svc: RagQueryService
+    # 절차
+    1. query를 vectordb에서 조회
+    2. 프롬프트에 context로 포함
+    3. 답변생성요청
+    4. 사용된 토큰량을 포함해 반환
+    """
+    result: QueryByRagResult = svc.chat(
+        query=req.query, filter=req.filter, top_k=req.top_k
+    )
     return QueryByRagResponse(
-        timestamp=datetime.now(), trace_id=trace_id, result=result
+        timestamp=datetime.now(),
+        trace_id=trace_id,
+        result=result,
     )

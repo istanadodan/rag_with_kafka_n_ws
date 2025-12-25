@@ -1,4 +1,4 @@
-from clients.qdrant_vdb import QdrantClientProvider
+from services.qdrant_vdb import QdrantClientProvider
 from repositories.source_repository import SourceRepository
 from services.embedding import StudioLmEmbedding
 from services.ingest_service import RagIngestService

@@ -2,8 +2,6 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from core.config import settings
 from core.logging import setup_logging
-from services.kafka_service import KafkaConsumerBackgroundService
-from services.kafka_handlers import KafkaConsumerHandler
 import logging
 import asyncio
 
@@ -13,17 +11,14 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    import core.event_loop as el
+    from services.kafka_service import kafkaService
+    from services.kafka_handlers import KafkaConsumerHandler
+    import cmn.event_loop as el
 
     el.MAIN_LOOP = asyncio.get_running_loop()
 
-    consumer = KafkaConsumerBackgroundService(
-        topic=settings.kafka_topic,
-        message_handler=KafkaConsumerHandler(),
-        bootstrap_servers=settings.kafka_bootstrap_servers,
-        group_id=settings.kafka_group,
-    )
-    consumer.start()
+    kafkaService.consumer_callback(KafkaConsumerHandler())
+    kafkaService.run_thread()
     logger.info(
         "App started. collection=%s dim=%d",
         settings.qdrant_collection,
@@ -33,20 +28,20 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    consumer.stop()
+    kafkaService.stop()
     logger.info("App shutdown completed")
 
 
 def create_app() -> FastAPI:
     from starlette.middleware.cors import CORSMiddleware
-    from core.trace_id import trace_id_middleware
-    from core.access_logging import access_logging_middleware
+    from core.middleware.trace_id import trace_id_middleware
+    from core.middleware.access_logging import access_logging_middleware
     from core.exception_handlers import get_exception_handlers
     from api.v1.api_route import router as api_router
 
     setup_logging(settings.log_level)
 
-    app = FastAPI(title=settings.app_name, lifespan=lifespan)
+    app = FastAPI(title=settings.app_name, lifespan=lifespan, root_path="/rag-api")
     # --- middlewares ---
     app.add_middleware(
         CORSMiddleware,

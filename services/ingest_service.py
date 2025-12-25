@@ -1,8 +1,8 @@
 from uuid import uuid4
-from models.rag import RagPipelineResult
-from models.source import SourceDocument
+from schemas.rag import RagPipelineResult
+from schemas.source import SourceDocument
 from services.embedding import EmbeddingProvider
-from clients.qdrant_vdb import QdrantClientProvider
+from services.qdrant_vdb import QdrantClientProvider
 from qdrant_client.http import models as qm
 import logging
 

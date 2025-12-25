@@ -1,5 +1,5 @@
 import logging
-from core.trace_id import get_trace_id
+from core.middleware.trace_id import get_trace_id
 
 
 class TraceIdFilter(logging.Filter):

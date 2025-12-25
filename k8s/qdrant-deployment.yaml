@@ -13,16 +13,6 @@ spec:
       labels:
         app: qdrantdb-pod
     spec:
-      # initContainers:
-      # - name: init-db
-      #   # image: alpine
-      #   # command: ['sh', '-c', 'apk add shadow; getent group docker || groupadd docker; chown :docker /var/lib/mysql']
-      #   image: busybox
-      #   # command: ['sh', '-c', 'chown :999 /var/lib/mysql; chmod -R 600 /var/lib/mysql']
-      #   command: ['sh', '-c', 'chown :999 /var/lib/mysql']
-      #   volumeMounts:
-      #   - name: db-storage
-      #     mountPath: /var/lib/mysql
       containers:
         - name: qdrantdb
           image: qdrant/qdrant

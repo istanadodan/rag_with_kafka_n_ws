@@ -1,5 +1,5 @@
 from typing import List, Dict, Any
-from models.base import AppBaseModel, MetaResponse
+from schemas.base import AppBaseModel, MetaResponse
 from pydantic import Field
 
 
@@ -19,6 +19,10 @@ class RagPipelineResponse(MetaResponse):
 class QueryByRagRequest(AppBaseModel):
     query: str
     top_k: int = 5
+    filter: dict[str, str] = Field(
+        default_factory=dict,
+        examples=[{"producer": "ESP Ghostscript 7.07"}],
+    )
 
 
 class RagHit(AppBaseModel):
@@ -30,6 +34,7 @@ class RagHit(AppBaseModel):
 class QueryByRagResult(AppBaseModel):
     answer: str
     hits: List[RagHit]
+    model_config = {"extra": "ignore"}
 
 
 class QueryByRagResponse(MetaResponse):

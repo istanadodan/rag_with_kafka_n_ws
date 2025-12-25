@@ -3,8 +3,8 @@ from fastapi import Request, FastAPI
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from typing import Callable, Type
-from models.base import ErrorResponse
-from core.exceptions import (
+from schemas.base import ErrorResponse
+from cmn.exception import (
     DatabaseException,
     CommunicationException,
     ValidationException,
@@ -39,7 +39,7 @@ def get_exception_handlers() -> dict[Type[Exception], Callable]:
 
 # 공통 에러응답처리
 def _error_response(request: Request, exc: Exception, status: int):
-    from core.trace_id import get_trace_id
+    from core.middleware.trace_id import get_trace_id
 
     body = ErrorResponse(
         # trace_id=getattr(request.state, "trace_id", "-"),

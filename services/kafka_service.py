@@ -1,13 +1,13 @@
-import asyncio
 import json
 from kafka import KafkaConsumer, KafkaProducer
-from core.config import settings
-from typing import Generator
+from typing import Callable, Union
 from dataclasses import dataclass
 from datetime import datetime
+from threading import Event
 from utils.logging import logging, log_block_ctx
+from core.config import settings
 from services.kafka_handlers import BaseHandler
-from utils.thread_utils import ThreadExecutor
+from utils.thread_utils import ThreadExecutor, Future
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +21,8 @@ class KafkaConfig:
     group_id: str
     auto_offset_reset: str = "earliest"
     enable_auto_commit: bool = True
-    consumer_timeout_ms: int = 30000  # polling 타임아웃
-    max_poll_records: int = 500  # 한 번에 가져올 최대 레코드 수
+    consumer_timeout_ms: int = 10000  # polling 타임아웃
+    max_poll_records: int = 100  # 한 번에 가져올 최대 레코드 수
     reconnect_backoff_ms: int = 50  # 재연결 대기 시간
 
     @classmethod
@@ -34,98 +34,18 @@ class KafkaConfig:
         )
 
 
-class KafkaConsumerService:
-    def __init__(self, topic: str, bootstrap_servers: str, group_id: str):
+class KafkaService:
+
+    def __init__(self, topic: str, group_id: str, bootstrap_servers: str):
         # 토픽 추출
+        self._stop_event = Event()
         self.consumer = KafkaConsumer(
             topic,
             value_deserializer=lambda x: x.decode("utf-8"),
             **KafkaConfig.from_settings(bootstrap_servers, group_id).__dict__,
         )
 
-    def consume(self) -> Generator:
-        for message in self.consumer:
-            yield message
-
-    def close(self):
-        self.consumer.close()
-
-
-class KafkaConsumerBackgroundService(BaseHandler):
-    """
-    요구사항: '수신만 고려' + FastAPI 내부 백그라운드 태스크.
-    현재는 연결/구독은 스텁으로 두고, 향후 aiokafka 등으로 교체.
-    """
-
-    def __init__(self, message_handler: BaseHandler, **kwargs):
-        # self._stop = asyncio.Event()
-        self._task: asyncio.Task | None = None
-        self._msg_handler = message_handler
-        self.kwargs = kwargs or {}
-        self._consumer: KafkaConsumerService | None = None
-        self._thread: ThreadExecutor | None = None
-
-    def create_consumer(self, **kwargs) -> None:
-        self.kwargs.update(kwargs or {})
-        self._consumer = KafkaConsumerService(**self.kwargs)
-
-    def start(self) -> None:
-        if not settings.kafka_enabled:
-            logger.info("Kafka consumer disabled (KAFKA_ENABLED=false).")
-            return
-        if self._consumer is None:
-            self.create_consumer()
-        if self._thread is None:
-            self._thread = ThreadExecutor(task=self)
-        self._thread.submit()
-        logger.info("Kafka consumer starting (stub). topic=%s", settings.kafka_topic)
-
-    def stop(self) -> None:
-        # self._stop.set()
-        if self._consumer:
-            logger.info("Kafka consumer terminated")
-            self._consumer.close()
-
-        if self._thread:
-            logger.info("Kafka consumer thread terminated")
-            self._thread.shutdown()
-
-    def handle(self, message) -> None:
-        # 스텁: 실제로는 topic 수신 후 pdf_dir에 떨어진 파일 ingest 트리거 등으로 확장
-        if self._consumer is None:
-            logger.error("Kafka consumer not initialized.")
-            return
-
-        logger.info("Kafka consumer heartbeat (stub) starts")
-        while True:
-
-            msg = next(self._consumer.consume(), None)
-
-            if msg is not None:
-                try:
-                    value = json.loads(msg.value)
-                except json.JSONDecodeError:
-                    value = msg.value
-
-                message_data = {
-                    "topic": msg.topic,
-                    "partition": msg.partition,
-                    "offset": msg.offset,
-                    "key": msg.key.decode("utf-8") if msg.key else None,
-                    "value": value,
-                    "headers": msg.headers,
-                    "timestamp": msg.timestamp,
-                    "consumed_at": datetime.now().isoformat(),
-                }
-
-                logger.info("Kafka consumer received message: %s", message_data)
-                if self._msg_handler:
-                    self._msg_handler.handle(message_data)
-
-
-class KafkaProducerService:
-    def __init__(self, bootstrap_servers: str):
-        self._producer = KafkaProducer(
+        self.producer = KafkaProducer(
             bootstrap_servers=bootstrap_servers,
             key_serializer=lambda key: (
                 key.encode("utf-8") if isinstance(key, str) else key
@@ -133,14 +53,75 @@ class KafkaProducerService:
             value_serializer=lambda x: json.dumps(x).encode("utf-8"),
         )
 
+    def consumer_callback(self, callback: Union[BaseHandler, Callable]):
+        self.callback = callback if isinstance(callback, Callable) else callback.handle
+
     def send_message(self, topic: str, **kwargs) -> None:
         logger.info("Kafka producer sending message: %s", kwargs)
         try:
             # topic, value=None, key=None, headers=None, partition=None, timestamp_ms=None
-            self._producer.send(topic, **kwargs)
-            self._producer.flush()
+            self.producer.send(topic, **kwargs)
+            self.producer.flush()
         except Exception as e:
             logger.error("Kafka producer error: %s", str(e))
 
-    def close(self):
-        self._producer.close()
+    def run_thread(self) -> bool:
+        self._thread = ThreadExecutor(task=self._poll)
+        try:
+            _r = self._thread.submit()
+            return True
+        except Exception:
+            logger.error("Kafka consumer thread start failed")
+            return False
+
+    def stop(self):
+        self._stop_event.set()
+
+    def _close(self):
+        if self.consumer:
+            self.consumer.close()
+            logger.info("Kafka consumer terminated")
+
+        if self._thread:
+            self._thread.shutdown()
+
+    def _poll(self, message=None) -> None:
+        logger.info("Kafka consumer heartbeat (stub) starts")
+        while not self._stop_event.is_set():
+            # queue에서 다음 메시지를 가져온다
+            for msg in self.consumer:
+                if msg is None:
+                    continue
+
+                try:
+                    try:
+                        value = json.loads(msg.value)
+                    except json.JSONDecodeError:
+                        value = msg.value
+
+                    message_data = {
+                        "topic": msg.topic,
+                        "partition": msg.partition,
+                        "offset": msg.offset,
+                        "key": msg.key.decode("utf-8") if msg.key else None,
+                        "value": value,
+                        "headers": msg.headers,
+                        "timestamp": msg.timestamp,
+                        "consumed_at": datetime.now().isoformat(),
+                    }
+
+                    logger.info("Kafka consumer received message: %s", message_data)
+                    self.callback(message_data)
+
+                except Exception as e:
+                    logger.error("Kafka consumer error: %s", str(e))
+                    continue
+
+        self._close()
+
+
+kafkaService = KafkaService(
+    topic=settings.kafka_topic,
+    group_id=settings.kafka_group,
+    bootstrap_servers=settings.kafka_bootstrap_servers,
+)

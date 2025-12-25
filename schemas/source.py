@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from models.base import AppBaseModel
+from schemas.base import AppBaseModel
 
 
 class SourceDocument(AppBaseModel):

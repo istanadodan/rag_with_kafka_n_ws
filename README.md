@@ -19,9 +19,20 @@ docker push local-registry:5000/rag-api:0.1.0
 
 1. qdrant db: 10->6333
    kubectl port-forward service/qdrantdb -n rag 10:6333
+   ==> Ingress 설정으로 변경
+
+   1. host: rag-api.local #sub-domain생성
+   2. path: /
+   3. pathType: PreFix
+   4. Service: qdrantdb:6333
 
 2. rag-api: 5 -> 8000
    kubectl port-forward service/rag-api -n rag 5:8000
+   ==> Ingress 설정으로 변경
+   1. path: /rag-api
+   2. pathType: PreFix
+   3. service: rag-api:8000
+   4. proxy-body-size: 100m 추가 설정
 
 ### 로깅
 
