@@ -19,4 +19,4 @@ async def websocket_endpoint(ws: WebSocket, client_id: str, role: str):
     except WebSocketDisconnect as e:
         logging.error(e)
     finally:
-        ws_manager.disconnect(client_id)
+        await ws_manager.disconnect(client_id)

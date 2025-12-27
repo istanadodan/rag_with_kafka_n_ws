@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+import asyncio
+import logging
 from core.config import settings
 from core.logging import setup_logging
-import logging
-import asyncio
+
 
 logger = logging.getLogger(__name__)
 
@@ -11,24 +12,41 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    from services.kafka_service import kafkaService
-    from services.kafka_handlers import KafkaConsumerHandler
     import cmn.event_loop as el
+    from services.kafka_handlers import kafka_consumer_handler
+    from services.kafka_bridge import KafkaBridge
 
+    # main event loop 저장
     el.MAIN_LOOP = asyncio.get_running_loop()
+
+    """
+    동기처리 kafka 사용 시,
+    from services.kafka_service import kafkaService
 
     kafkaService.consumer_callback(KafkaConsumerHandler())
     kafkaService.run_thread()
+    """
+    kafka_service = KafkaBridge()
+    kafka_service.config(
+        servers=settings.kafka_bootstrap_servers,
+        group=settings.kafka_group,
+        tin=settings.kafka_topic,
+        tout=settings.kafka_topic,
+        consumer_callback=kafka_consumer_handler,
+        event_loop=el.MAIN_LOOP,
+    )
+    # kafka_service.set_event_loop(el.MAIN_LOOP)
+    await kafka_service.start()
     logger.info(
         "App started. collection=%s dim=%d",
         settings.qdrant_collection,
         settings.embedding_dim,
     )
-
     yield
 
     # Shutdown
-    kafkaService.stop()
+    # kafkaService.stop()
+    await kafka_service.stop()
     logger.info("App shutdown completed")
 
 

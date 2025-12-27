@@ -1,4 +1,4 @@
-import json
+import json, orjson
 from kafka import KafkaConsumer, KafkaProducer
 from typing import Callable, Union
 from dataclasses import dataclass
@@ -8,6 +8,7 @@ from utils.logging import logging, log_block_ctx
 from core.config import settings
 from services.kafka_handlers import BaseHandler
 from utils.thread_utils import ThreadExecutor, Future
+from schemas.stomp import StompFrameModel
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class KafkaService:
         self._stop_event = Event()
         self.consumer = KafkaConsumer(
             topic,
-            value_deserializer=lambda x: x.decode("utf-8"),
+            value_deserializer=lambda x: orjson.loads(x.decode("utf-8")),
             **KafkaConfig.from_settings(bootstrap_servers, group_id).__dict__,
         )
 
@@ -95,8 +96,8 @@ class KafkaService:
 
                 try:
                     try:
-                        value = json.loads(msg.value)
-                    except json.JSONDecodeError:
+                        value = orjson.loads(msg.value)
+                    except orjson.JSONDecodeError:
                         value = msg.value
 
                     message_data = {
@@ -104,14 +105,15 @@ class KafkaService:
                         "partition": msg.partition,
                         "offset": msg.offset,
                         "key": msg.key.decode("utf-8") if msg.key else None,
-                        "value": value,
+                        "value": StompFrameModel.model_validate(value),
                         "headers": msg.headers,
                         "timestamp": msg.timestamp,
                         "consumed_at": datetime.now().isoformat(),
                     }
 
                     logger.info("Kafka consumer received message: %s", message_data)
-                    self.callback(message_data)
+                    if self.callback:
+                        self.callback(message_data)
 
                 except Exception as e:
                     logger.error("Kafka consumer error: %s", str(e))

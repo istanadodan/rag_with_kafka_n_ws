@@ -3,17 +3,17 @@ from fastapi import APIRouter, Depends
 from fastapi import UploadFile, File
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 import shutil
 from core.config import settings
 from api.v1.deps import _get_rag_service, _get_trace_id
+from schemas.stomp import StompFrameModel
 from schemas.rag import (
     RagPipelineResponse,
     QueryByRagResult,
     QueryByRagRequest,
     QueryByRagResponse,
 )
-from services.kafka_service import kafkaService
+from services.kafka_bridge import KafkaBridge
 from services.rag_service import RagQueryService
 from utils.logging import logging, log_block_ctx
 
@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 def rag_pipeline(
     trace_id: str = Depends(_get_trace_id), upload_file: UploadFile = File(...)
 ):
+    import cmn.event_loop as el
+
     # trace id 취득
     logger.info(
         "content_type=%s, upload_file=%s, trace_id=%s",
@@ -55,15 +57,15 @@ def rag_pipeline(
         shutil.copyfileobj(upload_file.file, f)
 
     # 카프카 토픽 생성 - 파이프라인 개시
-    from schemas.stomp import StompFrameModel
-
+    kafka_service = KafkaBridge()
     with log_block_ctx(logger, f"send kafka topic({settings.kafka_topic})"):
         f = StompFrameModel(
             command="pipeline-start",
             headers={},
             body=os.path.splitext(upload_file.filename)[0],
         )
-        kafkaService.send_message(
+        # kafkaService.set_event_loop(el.MAIN_LOOP)
+        kafka_service.send_message_sync(
             topic=settings.kafka_topic,
             key=trace_id,
             value=f.model_dump(),

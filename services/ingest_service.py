@@ -30,9 +30,7 @@ class RagIngestService:
         file_path = Path("/mnt") / (file_name + ".pdf")
         logger.info("file_path=%s", file_path)
         if file_path.exists() is False:
-            logger.error("File not found: %s", file_path)
-            # raise FileNotFoundError(f"File not found: {file_path}")
-            return None
+            raise FileNotFoundError(f"File not found: {file_path}")
 
         vectors = []
         try:
@@ -46,11 +44,6 @@ class RagIngestService:
                 SourceDocument(page_content=d.page_content, metadata=d.metadata)
                 for d in splitter.split_documents(docs)
             ]
-            # for each chunk, embed and upsert to qdrant
-            # doc = SourceDocument(
-            #     page_content="stub pageContent extracted from PDF",
-            #     metadata={"type": "pdf"},
-            # )
 
             vectors = self.embedder.embed([doc.page_content for doc in src_docs])
 
