@@ -14,6 +14,8 @@ class Settings(BaseSettings):
 
     embedding_dim: int = 768
     pdf_dir: str = "/mnt"
+    chunk_size: int = 500
+    chunk_overlap: int = 50
 
     kafka_enabled: bool = True
     kafka_bootstrap_servers: str = (

@@ -80,7 +80,7 @@ async def kafka_consumer_handler(message: dict) -> None:
                 def _notify_outbound2(task: asyncio.Task):
                     logger.info(f"_notify_outbound2 task: {task}")
                     if not task.result():
-                        logger.info(f"UI notify, canceled due to an error!")
+                        logger.info(f"UI notify, cancelled due to an error!")
                         return
 
                     kafka_service = KafkaBridge()

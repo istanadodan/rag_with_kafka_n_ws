@@ -1,4 +1,5 @@
 from uuid import uuid4
+from core.config import settings
 from schemas.rag import RagPipelineResult
 from schemas.source import SourceDocument
 from services.embedding import EmbeddingProvider
@@ -38,7 +39,7 @@ class RagIngestService:
             docs: list[Document] = loader.load()
             # extract text chunks
             splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000, chunk_overlap=100
+                chunk_size=settings.chunk_size, chunk_overlap=settings.chunk_overlap
             )
             src_docs: list[SourceDocument] = [
                 SourceDocument(page_content=d.page_content, metadata=d.metadata)
