@@ -16,6 +16,7 @@ from schemas.rag import (
 from services.kafka_bridge import KafkaBridge
 from services.rag_service import RagQueryService
 from utils.logging import logging, log_block_ctx
+from starlette.background import BackgroundTask
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/rag-pipeline", response_model=RagPipelineResponse)
-def rag_pipeline(
+async def rag_pipeline(
     trace_id: str = Depends(_get_trace_id), upload_file: UploadFile = File(...)
 ):
     import cmn.event_loop as el
@@ -78,8 +79,11 @@ def rag_pipeline(
     )
 
 
+from fastapi.responses import JSONResponse
+
+
 @router.post("/query_by_rag", response_model=QueryByRagResponse)
-def query_by_rag(
+async def query_by_rag(
     req: QueryByRagRequest,
     trace_id: str = Depends(_get_trace_id),
     svc: RagQueryService = Depends(_get_rag_service),
@@ -99,11 +103,30 @@ def query_by_rag(
     3. 답변생성요청
     4. 사용된 토큰량을 포함해 반환
     """
-    result: QueryByRagResult = svc.chat(
-        query=req.query, filter=req.filter, top_k=req.top_k
+
+    # 반환값 설정
+    # kafka topic 발행
+    from services.kafka_bridge import KafkaBridge
+
+    kafka_service = KafkaBridge()
+    topic = settings.kafka_topic
+    with log_block_ctx(logger, f"send kafka topic({topic})"):
+        f = StompFrameModel(
+            command="query-by-rag",
+            headers={},
+            body=req.model_dump_json(),
+        )
+        kafka_service.send_message_sync(
+            topic=topic,
+            key=trace_id,
+            value=f.model_dump(),
+        )
+
+    def bg_task(_id: str):
+        logger.info("Background task executed for trace_id=%s", _id)
+
+    task = BackgroundTask(
+        bg_task,
+        trace_id,
     )
-    return QueryByRagResponse(
-        timestamp=datetime.now(),
-        trace_id=trace_id,
-        result=result,
-    )
+    return JSONResponse(content={"result": "OK"}, media_type="text", background=task)

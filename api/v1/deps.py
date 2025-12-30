@@ -12,22 +12,26 @@ embedder = StudioLmEmbedding(dim=settings.embedding_dim)
 source_repo = SourceRepository()
 
 
+_rag_ingest_service = RagIngestService(
+    qdrant=qdrant,
+    embedder=embedder,
+    collection=settings.qdrant_collection,
+)
+_rag_query_service = RagQueryService(
+    qdrant=qdrant,
+    embedder=embedder,
+    collection=settings.qdrant_collection,
+)
+
+
 def _get_trace_id(request: Request) -> str:
     return getattr(request.state, "trace_id", "APP")
 
 
 # ---- Endpoint DI wiring ----
 def _get_ingest_service() -> RagIngestService:
-    return RagIngestService(
-        qdrant=qdrant,
-        embedder=embedder,
-        collection=settings.qdrant_collection,
-    )
+    return _rag_ingest_service
 
 
 def _get_rag_service() -> RagQueryService:
-    return RagQueryService(
-        qdrant=qdrant,
-        embedder=embedder,
-        collection=settings.qdrant_collection,
-    )
+    return _rag_query_service

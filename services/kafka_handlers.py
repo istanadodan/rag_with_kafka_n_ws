@@ -38,6 +38,8 @@ async def pipeline_handler(message: dict):
 
 async def kafka_consumer_handler(message: dict) -> None:
     from utils.thread_utils import ThreadExecutor, Future
+    from utils.websocket_utils import ws_manager
+    import cmn.event_loop as el
     import asyncio
 
     with log_block_ctx(logger, "Kafka Consumer - Handler"):
@@ -103,16 +105,39 @@ async def kafka_consumer_handler(message: dict) -> None:
 
             case "pipeline-end":
                 logger.info("websocket broadcast: %s", message)
-                import asyncio
-                from utils.websocket_utils import ws_manager
-                import cmn.event_loop as el
-
                 if el.MAIN_LOOP is None:
                     logger.error("event loop is not running")
                     return
                 asyncio.run_coroutine_threadsafe(
                     ws_manager.broadcast(
                         dict(value=f"{stomp.body}: upload completed."),
+                        lambda x: True,
+                    ),
+                    el.MAIN_LOOP,
+                )
+                return
+            case "query-by-rag":
+                # 반환
+                from schemas.rag import (
+                    QueryByRagRequest,
+                    QueryByRagResponse,
+                    QueryByRagResult,
+                )
+                from api.v1.deps import _rag_query_service as svc
+                import orjson
+
+                if el.MAIN_LOOP is None:
+                    logger.error("event loop is not running")
+                    return
+
+                req = orjson.loads(stomp.body)
+                result: QueryByRagResult = svc.chat(
+                    query=req["query"], filter=req["filter"], top_k=req["top_k"]
+                )
+                # websocket으로 반환
+                asyncio.run_coroutine_threadsafe(
+                    ws_manager.broadcast(
+                        dict(value=result.model_dump_json()),
                         lambda x: True,
                     ),
                     el.MAIN_LOOP,

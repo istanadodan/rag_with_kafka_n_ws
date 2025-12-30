@@ -103,7 +103,7 @@ context:
     def query(
         self,
         query: str,
-        filter: dict = dict(producer="ESP Ghostscript 7.07"),
+        filter: dict,
         top_k: int = 5,
     ) -> QueryByRagResult:
         from qdrant_client.models import Filter, FieldCondition, MatchValue
@@ -111,11 +111,15 @@ context:
 
         query_vector = self.embedder.embed([query])[0]
 
-        _filter = Filter(
-            must=[
-                FieldCondition(key=key, match=MatchValue(value=value))
-                for key, value in filter.items()
-            ]
+        _filter = (
+            Filter(
+                must=[
+                    FieldCondition(key=key, match=MatchValue(value=value))
+                    for key, value in filter.items()
+                ]
+            )
+            if filter
+            else None
         )
 
         result: QueryResponse = self.qdrant.client.query_points(

@@ -1,7 +1,8 @@
 # websocket/manager.py
 from typing import Callable, Dict
 from fastapi import WebSocket
-from asyncio import Lock
+from utils.stomp_codec import build_frame, pars_stomp_text
+import asyncio
 
 
 class Session:
@@ -13,7 +14,7 @@ class Session:
 class WebSocketManager:
     def __init__(self):
         self.sessions: Dict[str, Session] = {}
-        self._lock = Lock()
+        self._lock = asyncio.Lock()
 
     async def connect(self, client_id: str, ws: WebSocket, role: str):
         async with self._lock:
@@ -38,10 +39,6 @@ class WebSocketManager:
 
 
 ws_manager = WebSocketManager()
-
-from fastapi import WebSocket
-from utils.stomp_codec import build_frame, pars_stomp_text
-import asyncio
 
 
 class Hub:

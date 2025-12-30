@@ -56,7 +56,7 @@ class StudioLmEmbedding(EmbeddingProvider):
 
         except APIConnectionError as e:
             logger.error(f"Embeddings failed: {str(e)}")
-            raise Exception("Embedding service is unavailable")
+            raise RuntimeError("Embedding service is unavailable")
 
 
 class StudioLmEmbedding1(TextEmbeddingBase):
