@@ -36,7 +36,7 @@ class RagQueryService:
         self.collection = collection
         self.llm = llm_provider.llm
 
-    def chat(
+    async def chat(
         self,
         query: str,
         filter: dict = dict(producer="ESP Ghostscript 7.07"),

@@ -33,7 +33,7 @@ class WebSocketManager:
         if not targets:
             return
 
-        for session in self.sessions.values():
+        for session in targets:
             if predicate(session):
                 await session.ws.send_json(message)
 

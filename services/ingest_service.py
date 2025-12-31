@@ -5,6 +5,10 @@ from schemas.source import SourceDocument
 from services.embedding import EmbeddingProvider
 from services.qdrant_vdb import QdrantClientProvider
 from qdrant_client.http import models as qm
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pathlib import Path
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,15 +27,12 @@ class RagIngestService:
 
     def ingest_stub(self, file_name: str) -> RagPipelineResult | None:
         # load file with the file_name
-        from langchain_community.document_loaders import PyPDFLoader
-        from langchain_core.documents import Document
-        from langchain_text_splitters import RecursiveCharacterTextSplitter
-        from pathlib import Path
-
         file_path = Path("/mnt") / (file_name + ".pdf")
         logger.info("file_path=%s", file_path)
         if file_path.exists() is False:
-            raise FileNotFoundError(f"File not found: {file_path}")
+            logger.error("File not found: %s", file_path)
+            # raise FileNotFoundError(f"File not found: {file_path}")
+            return
 
         vectors = []
         try:
@@ -67,7 +68,7 @@ class RagIngestService:
 
         except Exception as e:
             logger.error("Ingestion failed: %s", str(e))
-            return None
+            return
 
         return RagPipelineResult(
             ingested_chunks=len(vectors),

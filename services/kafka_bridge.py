@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import orjson, json
+import orjson
 from typing import Callable
 from datetime import datetime
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 from utils.logging import logging, log_block_ctx
-from core.config import settings
 from schemas.stomp import InboundMessage, OutboundMessage, StompFrameModel
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +59,14 @@ class KafkaBridge:
             bootstrap_servers=self._servers,
             # group_id=f"{self._group}-{datetime.now().timestamp()}",
             group_id=self._group,
-            # auto_offset_reset="latest",
-            auto_offset_reset="earliest",
-            enable_auto_commit=True,
-            max_poll_records=500,
+            auto_offset_reset="latest",
+            # auto_offset_reset="earliest",
+            enable_auto_commit=False,
+            auto_commit_interval_ms=1000,
+            max_poll_records=10,
+            session_timeout_ms=30000,  # broker가 최대한 heartbeat를 대기하는 기간(30초)
+            heartbeat_interval_ms=3000,  # consumer가 broker에게 3초마다 신호를 보냄
+            max_poll_interval_ms=300000,  # 처리 오래걸릴 때
             value_deserializer=lambda x: orjson.loads(x.decode("utf-8")),
         )
         await self._consumer.start()
@@ -107,6 +111,10 @@ class KafkaBridge:
     async def _consume_loop(self) -> None:
         assert self._consumer is not None
         logger.info("KafkaBridge _consume_loop start")
+
+        count = 0
+        last_commit_time = time.time()
+        COMMIT_INTERVAL = 5.0  # 5초마다 commit
         try:
             async for rec in self._consumer:
                 if rec.value is None:
@@ -134,9 +142,23 @@ class KafkaBridge:
                     }
 
                     if self._consumer_callback:
-                        await self._consumer_callback(message_data)
+                        asyncio.create_task(self._consumer_callback(message_data))
                     else:
-                        logger.info("KafkaBridge decoded message: %s", message_data)
+                        logger.info(
+                            "No Callback: KafkaBridge decoded message: %s", message_data
+                        )
+
+                # 커밋
+                count += 1
+                now = time.time()
+
+                # 10개 또는 5초마다 commit
+                if count >= 10 or (now - last_commit_time) >= COMMIT_INTERVAL:
+                    await self._consumer.commit()
+                    logger.info(f"Batch commit: {count} message(s)")
+                    count = 0
+                    last_commit_time = now
+
         except asyncio.CancelledError:
             return
 
