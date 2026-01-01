@@ -56,10 +56,10 @@ async def chat_handler(req: dict):
     result = await svc.chat(
         query=req["query"], filter=req["filter"], top_k=req["top_k"]
     )
-    logger.info("background result: %s", result.model_dump_json())
+    logger.info("background result: %s", result.model_dump())
 
     await ws_manager.broadcast(
-        dict(value=result.model_dump_json()),
+        dict(value=result.model_dump()),
         lambda x: True,
     )
     logger.info("websocket broadcast completed")
@@ -104,26 +104,26 @@ async def kafka_consumer_handler(message: dict) -> None:
                 # future = thread_runner.submit(message=stomp.model_dump())
                 # future.add_done_callback(_notify_outbound)
 
-                def _notify_outbound2(task: asyncio.Task):
-                    logger.info(f"_notify_outbound2 task: {task}")
-                    if not task.result():
-                        logger.info(f"UI notify, cancelled due to an error!")
-                        return
+                # def _notify_outbound2(task: asyncio.Task):
+                #     logger.info(f"_notify_outbound2 task: {task}")
+                #     if not task.result():
+                #         logger.info(f"UI notify, cancelled due to an error!")
+                #         return
 
-                    kafka_service = KafkaBridge()
-                    # 완료 후 websocket broadcast (event loop로 호출)
-                    # kafka topic 발행 - topic: pipeline-end
-                    topic = settings.kafka_topic
-                    with log_block_ctx(logger, f"send kafka topic({topic})"):
-                        kafka_service.send_message_sync(
-                            topic=topic,
-                            key=trace_id,
-                            value=StompFrameModel(
-                                command="pipeline-end",
-                                headers={},
-                                body=stomp.body,
-                            ).model_dump(),
-                        )
+                #     kafka_service = KafkaBridge()
+                #     # 완료 후 websocket broadcast (event loop로 호출)
+                #     # kafka topic 발행 - topic: pipeline-end
+                #     topic = settings.kafka_topic
+                #     with log_block_ctx(logger, f"send kafka topic({topic})"):
+                #         kafka_service.send_message_sync(
+                #             topic=topic,
+                #             key=trace_id,
+                #             value=StompFrameModel(
+                #                 command="pipeline-end",
+                #                 headers={},
+                #                 body=stomp.body,
+                #             ).model_dump(),
+                #         )
 
                 result = await asyncio.to_thread(
                     pipeline_handler, message=stomp.model_dump()
@@ -147,7 +147,7 @@ async def kafka_consumer_handler(message: dict) -> None:
             case "pipeline-end":
                 with log_block_ctx(logger, f"pipeline-end ws send: {message}"):
                     await ws_manager.broadcast(
-                        dict(value=f"{stomp.body}: upload completed."),
+                        dict(value=dict(answer=f"{stomp.body}: upload completed.")),
                         lambda x: True,
                     )
                 # if el.MAIN_LOOP is None:

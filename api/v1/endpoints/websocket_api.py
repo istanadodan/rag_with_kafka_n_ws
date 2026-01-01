@@ -14,7 +14,10 @@ async def websocket_endpoint(ws: WebSocket, client_id: str, role: str):
         while True:
             data = await ws.receive_text()
             if data:
-                await ws.send_text(f"Message text was: {data}")
+                await ws_manager.broadcast(
+                    message=dict(value=dict(answer=f"Message text was: {data}")),
+                    predicate=lambda x: x.client_id == client_id,
+                )
             logging.info(f"Message text was: {data}")
     except WebSocketDisconnect as e:
         logging.error(e)

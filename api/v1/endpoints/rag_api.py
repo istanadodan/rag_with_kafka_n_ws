@@ -21,21 +21,11 @@ from starlette.background import BackgroundTask
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# def get_ingest_service() -> RagIngestService:
-#     # main.py에서 DI 컨테이너로 묶을 수도 있으나, 템플릿은 단순화를 위해 main에서 주입
-#     raise RuntimeError("DI not wired")
-
-
-# def get_rag_service() -> RagQueryService:
-#     raise RuntimeError("DI not wired")
-
 
 @router.post("/rag-pipeline", response_model=RagPipelineResponse)
 async def rag_pipeline(
     trace_id: str = Depends(_get_trace_id), upload_file: UploadFile = File(...)
 ):
-    import cmn.event_loop as el
-
     # trace id 취득
     logger.info(
         "content_type=%s, upload_file=%s, trace_id=%s",
@@ -60,16 +50,15 @@ async def rag_pipeline(
     # 카프카 토픽 생성 - 파이프라인 개시
     kafka_service = KafkaBridge()
     with log_block_ctx(logger, f"send kafka topic({settings.kafka_topic})"):
-        f = StompFrameModel(
-            command="pipeline-start",
-            headers={},
-            body=os.path.splitext(upload_file.filename)[0],
-        )
-        # kafkaService.set_event_loop(el.MAIN_LOOP)
+        # topic발행
         kafka_service.send_message_sync(
             topic=settings.kafka_topic,
             key=trace_id,
-            value=f.model_dump(),
+            value=StompFrameModel(
+                command="pipeline-start",
+                headers={},
+                body=os.path.splitext(upload_file.filename)[0],
+            ).model_dump(),
         )
 
     return RagPipelineResponse(
@@ -125,8 +114,11 @@ async def query_by_rag(
     def bg_task(_id: str):
         logger.info("Background task executed for trace_id=%s", _id)
 
-    task = BackgroundTask(
-        bg_task,
-        trace_id,
+    return JSONResponse(
+        content={"result": "OK"},
+        media_type="text",
+        background=BackgroundTask(
+            bg_task,
+            trace_id,
+        ),
     )
-    return JSONResponse(content={"result": "OK"}, media_type="text", background=task)

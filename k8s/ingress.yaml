@@ -22,9 +22,6 @@ spec:
                 name: qdrantdb
                 port:
                   number: 6333
-    - host: rag-api.local
-      http:
-        paths:
           - path: /rag-api
             # - path: /rag-api(/|$)(.*)
             # pathType: ImplementationSpecific

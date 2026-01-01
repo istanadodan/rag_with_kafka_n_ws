@@ -6,9 +6,10 @@ import asyncio
 
 
 class Session:
-    def __init__(self, ws: WebSocket, role: str):
+    def __init__(self, ws: WebSocket, role: str, client_id: str):
         self.ws = ws
         self.role = role
+        self.client_id = client_id
 
 
 class WebSocketManager:
@@ -19,14 +20,14 @@ class WebSocketManager:
     async def connect(self, client_id: str, ws: WebSocket, role: str):
         async with self._lock:
             await ws.accept()
-            self.sessions[client_id] = Session(ws, role)
+            self.sessions[client_id] = Session(ws, role, client_id)
 
     async def disconnect(self, client_id: str):
         async with self._lock:
             if client_id in self.sessions:
                 self.sessions.pop(client_id, None)
 
-    async def broadcast(self, message: dict, predicate: Callable):
+    async def broadcast(self, message: dict, predicate: Callable = lambda x: True):
         async with self._lock:
             targets = self.sessions.values()
 
