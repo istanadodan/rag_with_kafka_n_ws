@@ -38,6 +38,7 @@ class RagIngestService:
         try:
             loader = PyPDFLoader(file_path)
             docs: list[Document] = loader.load()
+
             # extract text chunks
             splitter = RecursiveCharacterTextSplitter(
                 chunk_size=settings.chunk_size, chunk_overlap=settings.chunk_overlap
@@ -47,8 +48,10 @@ class RagIngestService:
                 for d in splitter.split_documents(docs)
             ]
 
+            logger.info("docs doc_len=%d, spl_doc_len=%d", len(docs), len(src_docs))
             vectors = self.embedder.embed([doc.page_content for doc in src_docs])
 
+            logger.info("vectors len=%d", len(vectors))
             for vector, doc in zip(vectors, src_docs):
                 logger.info("doc: %s", doc)
 
