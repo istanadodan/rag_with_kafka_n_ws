@@ -5,11 +5,16 @@ from langchain_core.messages import BaseMessage
 from langchain_core.outputs import ChatResult
 from langchain_openai import ChatOpenAI
 from pydantic.types import SecretStr
+from core.config import settings
 
 
 class LLMProvider:
     def __init__(self):
-        self._llm = ChatOpenAI(model="gpt-5-mini-2025-08-07", temperature=1)
+        self._llm = ChatOpenAI(
+            model="gpt-5-mini-2025-08-07",
+            temperature=1,
+            api_key=SecretStr(settings.openai_api_key),
+        )
 
     @property
     def llm(self):
@@ -19,7 +24,8 @@ class LLMProvider:
 class StudioLMProvider:
     def __init__(self):
         self._llm = ChatOpenAI(
-            model="TheBloke/deepseek-coder-6.7B-instruct-GGUF",
+            # model="TheBloke/deepseek-coder-6.7B-instruct-GGUF",
+            model="teddylee777/Llama-3-Open-Ko-8B-Instruct-preview-gguf",
             base_url="http://host.docker.internal:11434/v1",
             api_key=SecretStr("lm-studio"),
             temperature=1,

@@ -1,8 +1,8 @@
 from fastapi import Request
 from core.config import settings
-from services.qdrant_vdb import get_qdrant_client
+from services.store.qdrant_vdb import get_qdrant_client
 from repositories.source_repository import SourceRepository
-from services.embedding import StudioLmEmbedding
+from services.llm.embedding import StudioLmEmbedding
 from services.ingest_service import RagIngestService
 from services.rag_service import RagQueryService
 

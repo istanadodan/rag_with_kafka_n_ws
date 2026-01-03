@@ -1,9 +1,10 @@
 import os
-from fastapi import APIRouter, Depends
-from fastapi import UploadFile, File
+from fastapi import APIRouter, Depends, UploadFile, File
 from datetime import datetime
 from pathlib import Path
 import shutil
+from starlette.background import BackgroundTask
+from fastapi.responses import JSONResponse
 from core.config import settings
 from api.v1.deps import _get_rag_service, _get_trace_id
 from schemas.stomp import StompFrameModel
@@ -13,10 +14,11 @@ from schemas.rag import (
     QueryByRagRequest,
     QueryByRagResponse,
 )
-from services.kafka_bridge import KafkaBridge
+
+from services.kafka.kafka_bridge import KafkaBridge
 from services.rag_service import RagQueryService
 from utils.logging import logging, log_block_ctx
-from starlette.background import BackgroundTask
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -68,9 +70,6 @@ async def rag_pipeline(
     )
 
 
-from fastapi.responses import JSONResponse
-
-
 @router.post("/query_by_rag", response_model=QueryByRagResponse)
 async def query_by_rag(
     req: QueryByRagRequest,
@@ -93,22 +92,18 @@ async def query_by_rag(
     4. 사용된 토큰량을 포함해 반환
     """
 
-    # 반환값 설정
     # kafka topic 발행
-    from services.kafka_bridge import KafkaBridge
-
     kafka_service = KafkaBridge()
     topic = settings.kafka_topic
     with log_block_ctx(logger, f"send kafka topic({topic})"):
-        f = StompFrameModel(
-            command="query-by-rag",
-            headers={},
-            body=req.model_dump_json(),
-        )
         kafka_service.send_message_sync(
             topic=topic,
             key=trace_id,
-            value=f.model_dump(),
+            value=StompFrameModel(
+                command="query-by-rag",
+                headers={},
+                body=req.model_dump_json(),
+            ).model_dump(),
         )
 
     def bg_task(_id: str):

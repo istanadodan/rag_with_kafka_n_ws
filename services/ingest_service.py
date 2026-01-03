@@ -2,8 +2,8 @@ from uuid import uuid4
 from core.config import settings
 from schemas.rag import RagPipelineResult
 from schemas.source import SourceDocument
-from services.embedding import EmbeddingProvider
-from services.qdrant_vdb import QdrantClientProvider
+from services.llm.embedding import EmbeddingProvider
+from services.store.qdrant_vdb import QdrantClientProvider
 from qdrant_client.http import models as qm
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
@@ -26,6 +26,8 @@ class RagIngestService:
         self.collection = collection
 
     def ingest_stub(self, file_name: str) -> RagPipelineResult | None:
+        from services.store.qdrant_store import get_qdrant_vectorstore
+
         # load file with the file_name
         file_path = Path("/mnt") / (file_name + ".pdf")
         logger.info("file_path=%s", file_path)
@@ -43,31 +45,37 @@ class RagIngestService:
             splitter = RecursiveCharacterTextSplitter(
                 chunk_size=settings.chunk_size, chunk_overlap=settings.chunk_overlap
             )
-            src_docs: list[SourceDocument] = [
-                SourceDocument(page_content=d.page_content, metadata=d.metadata)
-                for d in splitter.split_documents(docs)
-            ]
 
-            logger.info("docs doc_len=%d, spl_doc_len=%d", len(docs), len(src_docs))
-            vectors = self.embedder.embed([doc.page_content for doc in src_docs])
+            split_docs = splitter.split_documents(docs)
+            logger.info("docs doc_len=%d, spl_doc_len=%d", len(docs), len(split_docs))
 
-            logger.info("vectors len=%d", len(vectors))
-            for vector, doc in zip(vectors, src_docs):
-                logger.info("doc: %s", doc)
+            store = get_qdrant_vectorstore()
+            store.add_documents(split_docs)
 
-                self.qdrant.client.upsert(
-                    collection_name=self.collection,
-                    points=[
-                        qm.PointStruct(
-                            id=str(uuid4()),
-                            vector=vector,
-                            payload={
-                                "page_content": doc.page_content,
-                                **doc.metadata,
-                            },
-                        )
-                    ],
-                )
+            # src_docs: list[SourceDocument] = [
+            #     SourceDocument(page_content=d.page_content, metadata=d.metadata)
+            #     for d in splitter.split_documents(docs)
+            # ]
+            # logger.info("docs doc_len=%d, spl_doc_len=%d", len(docs), len(src_docs))
+            # vectors = self.embedder.embed([doc.page_content for doc in src_docs])
+
+            # logger.info("vectors len=%d", len(vectors))
+            # for vector, doc in zip(vectors, src_docs):
+            #     logger.info("doc: %s", doc)
+
+            #     self.qdrant.client.upsert(
+            #         collection_name=self.collection,
+            #         points=[
+            #             qm.PointStruct(
+            #                 id=str(uuid4()),
+            #                 vector=vector,
+            #                 payload={
+            #                     "page_content": doc.page_content,
+            #                     **doc.metadata,
+            #                 },
+            #             )
+            #         ],
+            #     )
 
         except Exception as e:
             logger.error("Ingestion failed: %s", str(e))

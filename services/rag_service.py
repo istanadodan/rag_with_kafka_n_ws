@@ -1,10 +1,10 @@
 from schemas.rag import QueryByRagResult, RagHit
-from services.qdrant_vdb import QdrantClientProvider
-from services.embedding import EmbeddingProvider
+from services.store.qdrant_vdb import QdrantClientProvider
+from services.llm.embedding import EmbeddingProvider
 from utils.logging import logging, log_block_ctx
 from core.config import settings
 from typing import cast
-from services.llm_provider import llm_provider
+from services.llm.llm_provider import llm_provider
 import os
 
 logger = logging.getLogger(__name__)
@@ -41,19 +41,18 @@ You are a professional AI assistant based on Retrieval-Augmented Generation (RAG
 You must answer strictly based on the provided context.
 
 Rules:
-
 1. Do not infer or generate information that is not present in the context.
 2. Provide concise, fact-based answers but do not cite the basis.
-3. If the information is uncertain or insufficient, explicitly state: “This cannot be confirmed from the provided documents.”
-4. When necessary, summarize and present key supporting sentences.
-5. Do not use context that is unrelated to the question.
+3. If the information is uncertain or insufficient, explicitly state as “This cannot be confirmed from the provided documents.”
+4. Do not use context that is unrelated to the question.
+5. Must answer in Korean
 
 Output format:
-* Clear and well-structured sentences
-* Avoid unnecessary modifiers and verbose explanations
+- Clear and well-structured sentences
+- Avoid unnecessary modifiers and verbose explanations
 
-context:
-{context}
+Context:
+ {context}
 """,
                 ),
                 ("user", "{input}"),
@@ -91,6 +90,54 @@ context:
 
     # vectordb에서 유사 정보조회
     def retrieve(
+        self,
+        query: str,
+        filter: dict,
+        top_k: int = 5,
+    ) -> QueryByRagResult:
+        from langchain_core.documents import Document
+
+        # from services.store.retriever import get_retriever
+        from services.store.qdrant_store import get_qdrant_vectorstore
+        from qdrant_client.http.models import (
+            VectorParams,
+            MatchValue,
+            FieldCondition,
+            Filter,
+        )
+
+        # retriever = get_retriever("qdrant", filter, top_k)
+        store = get_qdrant_vectorstore()
+        _filter = Filter(
+            must=(
+                [
+                    FieldCondition(key=key, match=MatchValue(value=value))
+                    for key, value in filter.items()
+                ]
+                if filter
+                else None
+            )
+        )
+
+        docs_with_scores: list[tuple[Document, float]] = (
+            store.similarity_search_with_score(query=query, k=top_k, filter=_filter)
+        )
+
+        hits = [
+            RagHit(
+                score=score,
+                source=doc.metadata["source"],
+                metadata={k: v for k, v in doc.metadata.items() if k != "source"},
+            )
+            for doc, score in docs_with_scores
+        ]
+
+        return QueryByRagResult(
+            answer="",
+            hits=hits,
+        )
+
+    def retrieve2(
         self,
         query: str,
         filter: dict,

@@ -1,5 +1,10 @@
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import VectorParams, Distance
+from qdrant_client.http.models import (
+    VectorParams,
+    Distance,
+    SparseVectorParams,
+    Bm25Config,
+)
 from core.config import settings
 import logging
 
@@ -38,7 +43,10 @@ class QdrantClientProvider:
         self._client.delete_collection(name)
         self._client.create_collection(
             collection_name=name,
-            vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+            vectors_config={
+                "dense": VectorParams(size=vector_size, distance=Distance.COSINE),
+            },
+            sparse_vectors_config={"sparse_vector": SparseVectorParams()},
         )
 
 

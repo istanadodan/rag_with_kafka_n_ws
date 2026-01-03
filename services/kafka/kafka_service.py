@@ -6,7 +6,7 @@ from datetime import datetime
 from threading import Event
 from utils.logging import logging, log_block_ctx
 from core.config import settings
-from services.kafka_handlers import BaseHandler
+from services.kafka.kafka_handlers import BaseHandler
 from utils.thread_utils import ThreadExecutor, Future
 from schemas.stomp import StompFrameModel
 

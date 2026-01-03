@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup
     import cmn.event_loop as el
-    from services.kafka_handlers import kafka_consumer_handler
-    from services.kafka_bridge import KafkaBridge
+    from services.kafka.kafka_handlers import kafka_consumer_handler
+    from services.kafka.kafka_bridge import KafkaBridge
 
     # main event loop 저장
     el.MAIN_LOOP = asyncio.get_running_loop()

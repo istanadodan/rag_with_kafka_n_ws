@@ -1,7 +1,7 @@
 from typing import Any, Protocol
 from utils.logging import logging, log_block_ctx
 from schemas.stomp import StompFrameModel, InboundMessage, OutboundMessage
-from services.kafka_bridge import KafkaBridge
+from services.kafka.kafka_bridge import KafkaBridge
 from core.config import settings
 from utils.websocket_utils import ws_manager
 import asyncio

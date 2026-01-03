@@ -2,7 +2,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor, Future
 import logging
 import cmn.event_loop as el
-from services.kafka_handlers import BaseHandler
+from services.kafka.kafka_handlers import BaseHandler
 from utils.websocket_utils import ws_manager
 from typing import Callable, Union
 
