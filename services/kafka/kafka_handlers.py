@@ -53,7 +53,12 @@ def chat_handler(req: dict):
     logger.info("background job: %s", req)
     from api.v1.deps import _rag_query_service as svc
 
-    result = svc.chat(query=req["query"], filter=req["filter"], top_k=req["top_k"])
+    result = svc.chat(
+        query=req["query"],
+        filter=req["filter"],
+        top_k=req["top_k"],
+        llm_model=req["llm"],
+    )
     logger.info("background result: %s", result.model_dump())
     return result
 

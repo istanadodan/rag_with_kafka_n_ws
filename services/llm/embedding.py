@@ -2,6 +2,7 @@ from typing import Iterable, Optional, Union, Any, Protocol, List
 from openai import OpenAI, APIConnectionError
 import logging
 from langchain_core.embeddings import Embeddings
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -72,4 +73,4 @@ class StudioLmEmbedding(EmbeddingProvider, Embeddings):
         return _r[0] if len(_r) > 0 else []
 
 
-embedding = StudioLmEmbedding()
+embedding = StudioLmEmbedding(dim=settings.embedding_dim)

@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     kafka_group: str = "group-01"
 
     openai_api_key: str = ""
+    llm_model_name: str = "studio"
 
     model_config = {
         "env_file": ".env",

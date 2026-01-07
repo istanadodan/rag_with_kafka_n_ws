@@ -1,10 +1,11 @@
+from langchain_core.documents import Document
 from schemas.rag import QueryByRagResult, RagHit
 from services.store.qdrant_vdb import QdrantClientProvider
 from services.llm.embedding import EmbeddingProvider
 from utils.logging import logging, log_block_ctx
 from core.config import settings
 from typing import cast
-from services.llm.llm_provider import llm_provider
+from services.llm.llm_provider import select_llm
 import os
 
 logger = logging.getLogger(__name__)
@@ -14,23 +15,34 @@ os.environ["OPENAI_API_KEY"] = settings.openai_api_key
 
 class RagQueryService:
     def __init__(
-        self, qdrant: QdrantClientProvider, embedder: EmbeddingProvider, collection: str
+        self,
+        qdrant: QdrantClientProvider,
+        embedder: EmbeddingProvider,
+        collection: str,
     ):
         self.qdrant = qdrant
         self.embedder = embedder
         self.collection = collection
-        self.llm = llm_provider.llm
+        self.llm = select_llm(settings.llm_model_name)
+
+    # llm_model설정
+    def llm_model(self, model_name: str):
+        self.llm = select_llm(model_name)
 
     def chat(
         self,
         query: str,
-        filter: dict = dict(producer="ESP Ghostscript 7.07"),
+        filter: dict = {"metadata.producer": "Skia/PDF m128"},
         top_k: int = 3,
+        llm_model: str = "studio",
     ) -> QueryByRagResult:
         # 프롬프트 생성
         from langchain_core.prompts import ChatPromptTemplate
         from langchain_core.output_parsers import StrOutputParser
         from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+
+        # LLM 모델 선택
+        self.llm = select_llm(llm_model)
 
         template = ChatPromptTemplate(
             messages=[
@@ -59,9 +71,7 @@ Context:
             ]
         )
         retrieval_result = self.retrieve(query, filter, top_k)
-        _context = [
-            r.metadata.get("page_content", "No context") for r in retrieval_result.hits
-        ]
+        _context = [r.page_content for r in retrieval_result.hits]
         chain = (
             {
                 "context": lambda _: (
@@ -92,13 +102,13 @@ Context:
     def retrieve(
         self,
         query: str,
-        filter: dict,
+        filter: dict = {"metadata.producer": "Skia/PDF m128"},
         top_k: int = 5,
     ) -> QueryByRagResult:
-        from langchain_core.documents import Document
 
-        # from services.store.retriever import get_retriever
-        from services.store.qdrant_store import get_qdrant_vectorstore
+        from services.store.retriever import get_retriever
+
+        # from services.store.qdrant_store import get_qdrant_vectorstore
         from qdrant_client.http.models import (
             VectorParams,
             MatchValue,
@@ -106,8 +116,7 @@ Context:
             Filter,
         )
 
-        # retriever = get_retriever("qdrant", filter, top_k)
-        store = get_qdrant_vectorstore()
+        # store = get_qdrant_vectorstore()
         _filter = Filter(
             must=(
                 [
@@ -118,18 +127,33 @@ Context:
                 else None
             )
         )
-
-        docs_with_scores: list[tuple[Document, float]] = (
-            store.similarity_search_with_score(query=query, k=top_k, filter=_filter)
+        # multiQuery
+        retriever = get_retriever(
+            "selfQuery", _filter, top_k, base_retriever="qdrant", llm=self.llm
         )
+        # docs_with_scores: list[tuple[Document, float]] = (
+        #     store.similarity_search_with_score(query=query, k=top_k, filter=_filter)
+        # )
+        retriever.model_dump()[""]
+        docs: list[Document] = retriever.invoke(query)
 
+        # hits = [
+        #     RagHit(
+        #         page_content=doc.page_content,
+        #         score=score,
+        #         source=doc.metadata["source"],
+        #         metadata={k: v for k, v in doc.metadata.items() if k != "source"},
+        #     )
+        #     for doc, score in docs_with_scores
+        # ]
         hits = [
             RagHit(
-                score=score,
+                page_content=doc.page_content,
+                score=0.0,
                 source=doc.metadata["source"],
                 metadata={k: v for k, v in doc.metadata.items() if k != "source"},
             )
-            for doc, score in docs_with_scores
+            for doc in docs
         ]
 
         return QueryByRagResult(
@@ -169,6 +193,7 @@ Context:
 
         hits = [
             RagHit(
+                page_content=r.payload["page_content"],
                 score=r.score,
                 source=r.payload.get("source", ""),
                 metadata={k: v for k, v in r.payload.items() if k != "source"},

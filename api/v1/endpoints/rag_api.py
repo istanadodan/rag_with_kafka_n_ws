@@ -70,11 +70,30 @@ async def rag_pipeline(
     )
 
 
+@router.post("/search_db", response_model=QueryByRagResult)
+async def search_db(
+    query: str,
+    filter: dict,
+    top_k: int = 3,
+    trace_id: str = Depends(_get_trace_id),
+    svc: RagQueryService = Depends(_get_rag_service),
+):
+    with log_block_ctx(logger, f"search_db: {query},{filter},{top_k}"):
+        result: QueryByRagResult = svc.retrieve(query=query, filter=filter, top_k=top_k)
+        return JSONResponse(
+            content={
+                "result": result.answer,
+                "hits": [h.model_dump() for h in result.hits],
+                "traceId": trace_id,
+            },
+            media_type="text",
+        )
+
+
 @router.post("/query_by_rag", response_model=QueryByRagResponse)
 async def query_by_rag(
     req: QueryByRagRequest,
     trace_id: str = Depends(_get_trace_id),
-    svc: RagQueryService = Depends(_get_rag_service),
 ):
     """
     Docstring for query_by_rag

@@ -18,7 +18,9 @@ class RagPipelineResponse(MetaResponse):
 
 class QueryByRagRequest(AppBaseModel):
     query: str
-    top_k: int = 5
+    top_k: int = 3
+    llm: str = ""
+    retriever: str = "qdrant"
     filter: dict[str, str] = Field(
         default_factory=dict,
         examples=[{"producer": "ESP Ghostscript 7.07"}],
@@ -26,6 +28,7 @@ class QueryByRagRequest(AppBaseModel):
 
 
 class RagHit(AppBaseModel):
+    page_content: str
     score: float
     source: str
     metadata: Dict[str, Any]
