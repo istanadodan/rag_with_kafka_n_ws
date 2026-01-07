@@ -73,13 +73,16 @@ async def rag_pipeline(
 @router.post("/search_db", response_model=QueryByRagResult)
 async def search_db(
     query: str,
-    filter: dict,
+    filter: dict = {"metadata.producer": "Skia/PDF m128"},
     top_k: int = 3,
+    retriever: str = "qdrant",
     trace_id: str = Depends(_get_trace_id),
     svc: RagQueryService = Depends(_get_rag_service),
 ):
     with log_block_ctx(logger, f"search_db: {query},{filter},{top_k}"):
-        result: QueryByRagResult = svc.retrieve(query=query, filter=filter, top_k=top_k)
+        result: QueryByRagResult = svc.retrieve(
+            name=retriever, query=query, filter=filter, top_k=top_k
+        )
         return JSONResponse(
             content={
                 "result": result.answer,

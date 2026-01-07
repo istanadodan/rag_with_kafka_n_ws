@@ -58,6 +58,7 @@ def chat_handler(req: dict):
         filter=req["filter"],
         top_k=req["top_k"],
         llm_model=req["llm"],
+        retriever_name=req["retriever"],
     )
     logger.info("background result: %s", result.model_dump())
     return result

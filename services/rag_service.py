@@ -35,6 +35,7 @@ class RagQueryService:
         filter: dict = {"metadata.producer": "Skia/PDF m128"},
         top_k: int = 3,
         llm_model: str = "studio",
+        retriever_name: str = "qdrant",
     ) -> QueryByRagResult:
         # 프롬프트 생성
         from langchain_core.prompts import ChatPromptTemplate
@@ -70,7 +71,7 @@ Context:
                 ("user", "{input}"),
             ]
         )
-        retrieval_result = self.retrieve(query, filter, top_k)
+        retrieval_result = self.retrieve(retriever_name, query, filter, top_k)
         _context = [r.page_content for r in retrieval_result.hits]
         chain = (
             {
@@ -101,6 +102,7 @@ Context:
     # vectordb에서 유사 정보조회
     def retrieve(
         self,
+        name: str,
         query: str,
         filter: dict = {"metadata.producer": "Skia/PDF m128"},
         top_k: int = 5,
@@ -129,12 +131,11 @@ Context:
         )
         # multiQuery
         retriever = get_retriever(
-            "selfQuery", _filter, top_k, base_retriever="qdrant", llm=self.llm
+            name, _filter, top_k, base_retriever="qdrant", llm=self.llm
         )
         # docs_with_scores: list[tuple[Document, float]] = (
         #     store.similarity_search_with_score(query=query, k=top_k, filter=_filter)
         # )
-        retriever.model_dump()[""]
         docs: list[Document] = retriever.invoke(query)
 
         # hits = [
