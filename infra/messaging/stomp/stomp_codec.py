@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Dict, Any, cast
 import stomper
-from schemas.stomp import StompFrameModel
+from typing import Dict, Any, cast
+from infra.schema import StompFrameModel
 
 
 def pars_stomp_text(raw: str) -> StompFrameModel:

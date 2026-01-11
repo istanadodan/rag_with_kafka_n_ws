@@ -4,7 +4,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from typing import Callable, Type
 from schemas.base import ErrorResponse
-from cmn.exception import (
+from core.exception.customs import (
     DatabaseException,
     CommunicationException,
     ValidationException,

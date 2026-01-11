@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
+from fastapi.responses import JSONResponse
 
 
 class AppBaseModel(BaseModel):

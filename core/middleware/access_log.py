@@ -2,8 +2,6 @@ import time
 from fastapi import Request, Response
 import logging
 
-# from starlette.middleware.base import BaseHTTPMiddleware
-
 logger = logging.getLogger(__name__)
 
 

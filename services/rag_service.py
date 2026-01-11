@@ -1,6 +1,6 @@
 from langchain_core.documents import Document
-from schemas.rag import QueryByRagResult, RagHit
-from services.store.qdrant_vdb import QdrantClientProvider
+from services.dto.rag import QueryByRagResult, RagHit
+from services.vdb.qdrant_client import QdrantClientProvider
 from services.llm.embedding import EmbeddingProvider
 from utils.logging import logging, log_block_ctx
 from core.config import settings
@@ -50,22 +50,27 @@ class RagQueryService:
                 (
                     "system",
                     """
-You are a professional AI assistant based on Retrieval-Augmented Generation (RAG).
-You must answer strictly based on the provided context.
+You are a professional AI assistant operating under a strict Retrieval-Augmented Generation (RAG) policy.
+
+You must answer only using the information explicitly contained in the provided context.
+Do not add explanations, examples, code blocks, or meta commentary.
 
 Rules:
-1. Do not infer or generate information that is not present in the context.
-2. Provide concise, fact-based answers but do not cite the basis.
-3. If the information is uncertain or insufficient, explicitly state as “This cannot be confirmed from the provided documents.”
-4. Do not use context that is unrelated to the question.
-5. Must answer in Korean
+- Context에 명시적으로 존재하지 않는 내용은 절대 추론하거나 생성하지 마십시오.
+- 답변은 사실 중심의 단문으로 작성하십시오.
+- 정보가 없거나 불확실한 경우, 반드시 다음 문장만 출력하십시오:
+  - “제공된 문서에서 확인할 수 없습니다.”
+- 질문과 직접적으로 관련 없는 Context는 사용하지 마십시오.
+- 반드시 한국어로만 답변하십시오.
+- 답변 외의 텍스트(설명, 헤더, 마크다운, 코드, 인용 등)는 출력하지 마십시오.
 
-Output format:
-- Clear and well-structured sentences
-- Avoid unnecessary modifiers and verbose explanations
+Output Constraints:
+- 순수 텍스트 문장만 출력
+- 코드 블록, 마크다운, 특수 태그(``` , < > 등) 사용 금지
+- 한 문단 이내로 간결하게 작성
 
 Context:
- {context}
+{context}
 """,
                 ),
                 ("user", "{input}"),
@@ -108,7 +113,7 @@ Context:
         top_k: int = 5,
     ) -> QueryByRagResult:
 
-        from services.store.retriever import get_retriever
+        from services.vdb.retriever import get_retriever
 
         # from services.store.qdrant_store import get_qdrant_vectorstore
         from qdrant_client.http.models import (

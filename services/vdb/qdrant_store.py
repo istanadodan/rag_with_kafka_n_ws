@@ -1,4 +1,4 @@
-from services.store import qdrant_vdb
+from services.vdb import qdrant_client
 from core.config import settings
 
 
@@ -7,10 +7,10 @@ def get_qdrant_vectorstore():
     from services.llm.embedding import embedding
 
     doc_store = QdrantVectorStore(
-        client=qdrant_vdb.get_qdrant_client().client,
+        client=qdrant_client.get_qdrant_client().client,
         collection_name=settings.qdrant_collection,
         embedding=embedding,
         sparse_embedding=FastEmbedSparse(),
-        vector_name="dense",
+        # vector_name="dense",
     )
     return doc_store

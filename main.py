@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import asyncio
 import logging
+import core.config as config
 from core.config import settings
 from core.logging import setup_logging
 
@@ -12,12 +13,11 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    import cmn.event_loop as el
-    from services.kafka.kafka_handlers import kafka_consumer_handler
-    from services.kafka.kafka_bridge import KafkaBridge
+    from infra.messaging.kafka.consumer_handler import kafka_consumer_handler
+    from infra.messaging.kafka.aio_kafka import KafkaBridge
 
     # main event loop 저장
-    el.MAIN_LOOP = asyncio.get_running_loop()
+    config.MAIN_LOOP = asyncio.get_running_loop()
 
     """
     동기처리 kafka 사용 시,
@@ -28,12 +28,12 @@ async def lifespan(app: FastAPI):
     """
     kafka_service = KafkaBridge()
     kafka_service.config(
-        servers=settings.kafka_bootstrap_servers,
-        group=settings.kafka_group,
+        servers=config.settings.kafka_bootstrap_servers,
+        group=config.settings.kafka_group,
         tin=settings.kafka_topic,
         tout=settings.kafka_topic,
         consumer_callback=kafka_consumer_handler,
-        event_loop=el.MAIN_LOOP,
+        event_loop=config.MAIN_LOOP,
     )
     # kafka_service.set_event_loop(el.MAIN_LOOP)
     await kafka_service.start()
@@ -53,8 +53,8 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     from starlette.middleware.cors import CORSMiddleware
     from core.middleware.trace_id import trace_id_middleware
-    from core.middleware.access_logging import access_logging_middleware
-    from core.exception_handlers import get_exception_handlers
+    from core.middleware.access_log import access_logging_middleware
+    from core.exception.handlers import get_exception_handlers
     from api.v1.api_route import router as api_router
 
     setup_logging(settings.log_level)

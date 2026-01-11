@@ -6,7 +6,7 @@ from typing import Callable
 from datetime import datetime
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 from utils.logging import logging, log_block_ctx
-from schemas.stomp import InboundMessage, OutboundMessage, StompFrameModel
+from infra.schema import InboundMessage, OutboundMessage, StompFrameModel
 import time
 
 logger = logging.getLogger(__name__)
@@ -163,14 +163,6 @@ class KafkaBridge:
             return
 
         logger.info("KafkaBridge _consume_loop end")
-
-
-from utils.websocket_utils import hub
-
-
-async def kafka_to_ws(m: OutboundMessage) -> None:
-    body_json = orjson.dumps(m.body).decode("utf-8")
-    await hub.broadcast(m.destination, body_json)
 
 
 # kafkaService = KafkaBridge(

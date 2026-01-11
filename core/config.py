@@ -1,6 +1,9 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
 import os
+import asyncio
+
+MAIN_LOOP: asyncio.AbstractEventLoop | None = None
 
 
 class Settings(BaseSettings):

@@ -1,0 +1,41 @@
+from typing import List, Dict, Any
+from schemas.base import AppBaseModel, MetaResponse
+from pydantic import Field
+from services.dto.rag import RagHit
+
+
+class RagPipelineResponse(MetaResponse):
+    result: str = Field(default="OK")
+
+
+class QueryByRagRequest(AppBaseModel):
+    query: str
+    top_k: int = 3
+    llm: str = ""
+    retriever: str = "qdrant"
+    filter: dict[str, str] = Field(
+        default_factory=dict,
+        examples=[{"producer": "ESP Ghostscript 7.07"}],
+    )
+
+
+class QueryByRagResponse(AppBaseModel):
+    trace_id: str
+    result: str = Field(default="OK")
+
+
+class QueryVdbRequest(AppBaseModel):
+    query: str
+    filter: dict[str, str] = Field(
+        default_factory=dict,
+        examples=[{"metadata.producer": "Skia/PDF m128"}],
+    )
+    top_k: int = 3
+    retriever: str = "qdrant"
+
+
+class QueryVdbResponse(AppBaseModel):
+    result: str
+    hits: List[RagHit]
+    trace_id: str
+    model_config = {"extra": "ignore"}

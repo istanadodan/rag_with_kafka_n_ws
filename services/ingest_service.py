@@ -1,11 +1,10 @@
 from uuid import uuid4
 from core.config import settings
-from schemas.rag import RagPipelineResult
+from services.dto.rag import RagPipelineResult
 from schemas.source import SourceDocument
 from services.llm.embedding import EmbeddingProvider
-from services.store.qdrant_vdb import QdrantClientProvider
+from services.vdb.qdrant_client import QdrantClientProvider
 from qdrant_client.http import models as qm
-from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pathlib import Path
@@ -26,7 +25,8 @@ class RagIngestService:
         self.collection = collection
 
     def ingest_stub(self, file_name: str) -> RagPipelineResult | None:
-        from services.store.qdrant_store import get_qdrant_vectorstore
+        from services.vdb.qdrant_store import get_qdrant_vectorstore
+        from langchain_community.document_loaders import PyPDFLoader
 
         # load file with the file_name
         file_path = Path("/mnt") / (file_name + ".pdf")

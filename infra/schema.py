@@ -1,5 +1,11 @@
 from pydantic import BaseModel, Field
-from typing import Any, Dict
+from typing import Any, Dict, Protocol
+
+
+# handler 인터페이스
+class BaseHandler(Protocol):
+
+    def handle(self, message: dict) -> None: ...
 
 
 class StompFrameModel(BaseModel):

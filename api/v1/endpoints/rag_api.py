@@ -3,19 +3,23 @@ from fastapi import APIRouter, Depends, UploadFile, File
 from datetime import datetime
 from pathlib import Path
 import shutil
-from starlette.background import BackgroundTask
-from fastapi.responses import JSONResponse
+from starlette.background import BackgroundTask, BackgroundTasks
 from core.config import settings
-from api.v1.deps import _get_rag_service, _get_trace_id
-from schemas.stomp import StompFrameModel
-from schemas.rag import (
+from api.deps import _get_rag_service, _get_trace_id
+from infra.schema import StompFrameModel
+from api.schema import (
     RagPipelineResponse,
-    QueryByRagResult,
     QueryByRagRequest,
     QueryByRagResponse,
+    QueryVdbRequest,
+    QueryVdbResponse,
+)
+from services.dto.rag import (
+    QueryByRagResult,
+    QueryByRagRequest,
 )
 
-from services.kafka.kafka_bridge import KafkaBridge
+from infra.messaging.kafka.aio_kafka import KafkaBridge
 from services.rag_service import RagQueryService
 from utils.logging import logging, log_block_ctx
 
@@ -70,43 +74,38 @@ async def rag_pipeline(
     )
 
 
-@router.post("/search_db", response_model=QueryByRagResult)
+@router.post("/search_db", response_model=QueryVdbResponse)
 async def search_db(
-    query: str,
-    filter: dict = {"metadata.producer": "Skia/PDF m128"},
-    top_k: int = 3,
-    retriever: str = "qdrant",
+    req: QueryVdbRequest,
+    background_tasks: BackgroundTasks,
     trace_id: str = Depends(_get_trace_id),
     svc: RagQueryService = Depends(_get_rag_service),
 ):
-    with log_block_ctx(logger, f"search_db: {query},{filter},{top_k}"):
+    with log_block_ctx(logger, f"search_db: {req}"):
         result: QueryByRagResult = svc.retrieve(
-            name=retriever, query=query, filter=filter, top_k=top_k
+            name=req.retriever, query=req.query, filter=req.filter, top_k=req.top_k
         )
-        return JSONResponse(
-            content={
-                "result": result.answer,
-                "hits": [h.model_dump() for h in result.hits],
-                "traceId": trace_id,
-            },
-            media_type="text",
+
+        def log_resp(x: QueryByRagResult):
+            logger.info(f"background task completed: {x}")
+
+        # 로깅
+        background_tasks.add_task(log_resp, result)
+
+        return QueryVdbResponse(
+            result=result.answer,
+            hits=result.hits,
+            trace_id=trace_id,
         )
 
 
 @router.post("/query_by_rag", response_model=QueryByRagResponse)
 async def query_by_rag(
     req: QueryByRagRequest,
+    background_tasks: BackgroundTasks,
     trace_id: str = Depends(_get_trace_id),
 ):
     """
-    Docstring for query_by_rag
-
-    :param req: Description
-    :type req: QueryByRagRequest
-    :param trace_id: Description
-    :type trace_id: str
-    :param svc: Description
-    :type svc: RagQueryService
     # 절차
     1. query를 vectordb에서 조회
     2. 프롬프트에 context로 포함
@@ -128,14 +127,9 @@ async def query_by_rag(
             ).model_dump(),
         )
 
+    # logging
     def bg_task(_id: str):
         logger.info("Background task executed for trace_id=%s", _id)
 
-    return JSONResponse(
-        content={"result": "OK"},
-        media_type="text",
-        background=BackgroundTask(
-            bg_task,
-            trace_id,
-        ),
-    )
+    background_tasks.add_task(bg_task, trace_id)
+    return QueryByRagResponse(result="OK", trace_id=trace_id)

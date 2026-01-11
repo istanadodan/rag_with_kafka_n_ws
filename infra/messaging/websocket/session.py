@@ -1,8 +1,7 @@
-# websocket/manager.py
+import asyncio
 from typing import Callable, Dict
 from fastapi import WebSocket
-from utils.stomp_codec import build_frame, pars_stomp_text
-import asyncio
+from infra.messaging.stomp.stomp_codec import build_frame, pars_stomp_text
 
 
 class Session:

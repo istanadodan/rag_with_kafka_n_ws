@@ -1,7 +1,7 @@
 from utils.logging import logging, log_block_ctx
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.documents import Document
-from services.store.qdrant_store import get_qdrant_vectorstore
+from services.vdb.qdrant_store import get_qdrant_vectorstore
 
 logger = logging.getLogger(__name__)
 

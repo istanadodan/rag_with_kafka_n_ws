@@ -1,9 +1,8 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, Future
 import logging
-import cmn.event_loop as el
-from services.kafka.kafka_handlers import BaseHandler
-from utils.websocket_utils import ws_manager
+import core.config as el
+from infra.schema import BaseHandler
 from typing import Callable, Union
 
 logger = logging.getLogger(__name__)
