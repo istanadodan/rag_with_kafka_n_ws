@@ -1,7 +1,7 @@
 import requests
 
 headers = {
-    "Authorization": "Bearer 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",
+    "Authorization": "Bearer ---",
     "Content-Type": "application/json",
     "Notion-Version": "2022-06-28",
 }

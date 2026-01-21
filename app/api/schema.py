@@ -24,6 +24,16 @@ class QueryByRagResponse(AppBaseModel):
     result: str = Field(default="OK")
 
 
+class AgentRequest(AppBaseModel):
+    query: str
+
+
+class AgentResponse(AppBaseModel):
+    trace_id: str
+    result: dict = Field(default_factory=dict)
+    hits: List = Field(default_factory=list)
+
+
 class QueryVdbRequest(AppBaseModel):
     query: str
     filter: dict[str, str] = Field(
