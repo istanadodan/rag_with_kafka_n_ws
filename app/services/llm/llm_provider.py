@@ -24,9 +24,10 @@ class OpenAIProvider:
 class StudioLMProvider:
     def __init__(self):
         self._llm = ChatOpenAI(
-            model="TheBloke/deepseek-coder-6.7B-instruct-GGUF",
-            # model="teddylee777/Llama-3-Open-Ko-8B-Instruct-preview-gguf",
+            # model="TheBloke/deepseek-coder-6.7B-instruct-GGUF",
+            model="teddylee777/Llama-3-Open-Ko-8B-Instruct-preview-gguf",
             base_url="http://host.docker.internal:11434/v1",
+            # base_url="http://localhost:11434/v1",
             api_key=SecretStr("lm-studio"),
             temperature=1,
         )

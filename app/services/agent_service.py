@@ -32,7 +32,15 @@ class AgentService:
         # 프롬프트 생성
         from services.agents.agent import DataCollectorAgent, StateGraphInterface
 
-        agent: StateGraphInterface = DataCollectorAgent()
-        r = agent.run(data_sources=[{"source_id": query, "source_type": "test"}])
+        agent: StateGraphInterface = DataCollectorAgent(llm_model)
+        r = agent.run(
+            data_sources=[
+                {
+                    "name": "계약서",
+                    "source_type": "file",
+                    "path": f"{query}",
+                }
+            ]
+        )
 
         return QueryByRagResult(answer=str(r), hits=[])

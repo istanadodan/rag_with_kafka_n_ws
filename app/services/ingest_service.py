@@ -5,8 +5,6 @@ from core.config import settings
 from services.dto.rag import RagPipelineResult
 from services.llm.embedding import EmbeddingProvider
 from core.db.vdb import QdrantClientProvider
-from core.db.rdb import AsyncSession, get_db
-from fastapi import Depends
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,11 +21,9 @@ class RagIngestService:
         self.embedder = embedder
         self.collection = collection
 
-    async def ingest_stub(
-        self, file_name: str, session: AsyncSession = Depends(get_db)
-    ) -> RagPipelineResult | None:
+    async def ingest_stub(self, file_name: str) -> RagPipelineResult | None:
         from infra.db.qdrant import get_vectorstore
-        from core.db.rdb import db_session_ctx
+        from api.deps import db_session_ctx
         from langchain_community.document_loaders import PyPDFLoader
         from models.parent_documents import ParentDocument
         from repositories.pd_repository import ParentDocumentRepository

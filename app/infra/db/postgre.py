@@ -6,12 +6,6 @@ from typing import override, Sequence, Iterator, TypeVar, Generic
 import json
 
 
-async def get_session():
-    from core.db.rdb import get_db
-
-    return get_db()
-
-
 class PostgresDocStore(BaseStore[str, Document]):
 
     def __init__(self, conn):

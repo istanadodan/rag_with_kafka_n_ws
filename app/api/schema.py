@@ -26,6 +26,7 @@ class QueryByRagResponse(AppBaseModel):
 
 class AgentRequest(AppBaseModel):
     query: str
+    llm: str
 
 
 class AgentResponse(AppBaseModel):

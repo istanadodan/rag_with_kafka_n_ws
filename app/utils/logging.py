@@ -1,6 +1,12 @@
 from contextlib import contextmanager
 import logging
 from utils.str_util import join_all_params
+from functools import wraps, partial
+import inspect
+
+
+def get_logger(name: str):
+    return logging.getLogger(name)
 
 
 @contextmanager
@@ -11,10 +17,6 @@ def log_block_ctx(logger: logging.Logger, title: str, level: int = logging.INFO)
         yield
     finally:
         logger.log(level, "\n%s\n[END] %s\n%s", sep, title, sep)
-
-
-from functools import wraps, partial
-import inspect
 
 
 # log decorator
@@ -54,6 +56,7 @@ def log_execution_block(title: str = "", level=logging.INFO):
                 log_start(title or f.__qualname__, *args, **kwargs)
                 _r = f(*args, **kwargs)
                 log_end(f"{title or f.__qualname__} 응답결과: {_r}")
+                return _r
 
             return _wrap
 

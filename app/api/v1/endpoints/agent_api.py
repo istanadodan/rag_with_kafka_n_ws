@@ -9,5 +9,5 @@ router = APIRouter()
 @router.post("/")
 async def agent(input: AgentRequest, trace_id: str = Depends(get_trace_id)):
     svc = AgentService()
-    r = svc.chat(query=input.query)
+    r = svc.chat(query=input.query, llm_model=input.llm)
     return AgentResponse(trace_id=trace_id, result={"message": r})

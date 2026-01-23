@@ -1,6 +1,7 @@
 from fastapi import Request
 from core.config import settings
-from core.db import get_qdrant_client
+from core.db import get_qdrant_client, async_session
+from contextlib import asynccontextmanager
 from repositories.source_repository import SourceRepository
 from services.llm.embedding import embedding
 from services.ingest_service import RagIngestService
@@ -34,3 +35,25 @@ def get_ingest_service(request: Request | None = None) -> RagIngestService:
 
 def get_rag_service(request: Request) -> RagQueryService:
     return _rag_query_service
+
+
+# 의존성: FastAPI에서 DB 세션 제공
+async def get_db():  # -> AsyncGenerator[AsyncSession, None]:
+    async with async_session() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            raise e
+
+
+@asynccontextmanager
+async def db_session_ctx():
+    async with async_session() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            raise e
