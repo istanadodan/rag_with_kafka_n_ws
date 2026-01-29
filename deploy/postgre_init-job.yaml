@@ -1,0 +1,188 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: supabase-db-init
+  namespace: rag
+data:
+  init.sql: |
+    -- Supabase 데이터베이스 초기화 (pgjwt 제외 버전)
+    -- pgjwt는 선택사항이며 JWT 검증은 애플리케이션 레벨에서 처리
+
+    -- 기본 확장 설치
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+    -- pgjwt는 건너뜀 (GoTrue가 JWT 검증을 직접 처리)
+    -- CREATE EXTENSION IF NOT EXISTS "pgjwt";
+
+    -- 스키마 생성
+    CREATE SCHEMA IF NOT EXISTS auth;
+    CREATE SCHEMA IF NOT EXISTS storage;
+    CREATE SCHEMA IF NOT EXISTS realtime;
+    CREATE SCHEMA IF NOT EXISTS _realtime;
+
+    -- auth 스키마에 필수 타입 생성
+    DO $$ 
+    BEGIN
+        -- aal_level 타입
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'aal_level' AND typnamespace = 'auth'::regnamespace) THEN
+            CREATE TYPE auth.aal_level AS ENUM ('aal1', 'aal2', 'aal3');
+        END IF;
+        
+        -- factor_status 타입
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'factor_status' AND typnamespace = 'auth'::regnamespace) THEN
+            CREATE TYPE auth.factor_status AS ENUM ('unverified', 'verified');
+        END IF;
+        
+        -- factor_type 타입 (TOTP와 WebAuthn만 포함, phone은 마이그레이션에서 추가됨)
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'factor_type' AND typnamespace = 'auth'::regnamespace) THEN
+            CREATE TYPE auth.factor_type AS ENUM ('totp', 'webauthn');
+        END IF;
+        
+        -- code_challenge_method 타입
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'code_challenge_method' AND typnamespace = 'auth'::regnamespace) THEN
+            CREATE TYPE auth.code_challenge_method AS ENUM ('s256', 'plain');
+        END IF;
+    END $$;
+
+    -- auth 스키마 권한
+    GRANT USAGE ON SCHEMA auth TO postgres;
+    GRANT ALL ON ALL TABLES IN SCHEMA auth TO postgres;
+    GRANT ALL ON ALL SEQUENCES IN SCHEMA auth TO postgres;
+    GRANT ALL ON ALL FUNCTIONS IN SCHEMA auth TO postgres;
+
+    -- 역할 생성
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN
+            CREATE ROLE anon NOLOGIN NOINHERIT;
+        END IF;
+        
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN
+            CREATE ROLE authenticated NOLOGIN NOINHERIT;
+        END IF;
+        
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
+            CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
+        END IF;
+        
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'supabase_auth_admin') THEN
+            CREATE ROLE supabase_auth_admin NOLOGIN NOINHERIT;
+        END IF;
+    END $$;
+
+    -- public 스키마 권한
+    GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+    GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+    GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+    GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
+
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+
+    -- storage 스키마 권한
+    GRANT USAGE ON SCHEMA storage TO anon, authenticated, service_role;
+    GRANT ALL ON ALL TABLES IN SCHEMA storage TO anon, authenticated, service_role;
+    GRANT ALL ON ALL SEQUENCES IN SCHEMA storage TO anon, authenticated, service_role;
+
+    -- realtime publication 생성
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+            CREATE PUBLICATION supabase_realtime;
+        END IF;
+    END $$;
+
+    -- postgres 사용자에게 supabase_auth_admin 역할 부여
+    GRANT supabase_auth_admin TO postgres;
+
+    -- 완료 메시지
+    DO $$
+    BEGIN
+        RAISE NOTICE 'Supabase database initialized successfully!';
+        RAISE NOTICE 'Note: pgjwt extension was skipped (optional for GoTrue)';
+    END $$;
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: supabase-db-init
+  namespace: rag
+spec:
+  ttlSecondsAfterFinished: 300 # Job 완료 5분 후 자동 삭제
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init-db
+          image: postgres:15-alpine
+          command:
+            - sh
+            - -c
+            - |
+              echo "=========================================="
+              echo "Supabase Database Initialization"
+              echo "=========================================="
+              echo ""
+
+              echo "Waiting for PostgreSQL to be ready..."
+              until pg_isready -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER; do
+                echo "PostgreSQL is unavailable - sleeping"
+                sleep 2
+              done
+
+              echo ""
+              echo "PostgreSQL is ready!"
+              echo "Executing initialization script..."
+              echo ""
+
+              psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -d $POSTGRES_DB -f /scripts/init.sql
+
+              EXIT_CODE=$?
+
+              echo ""
+              if [ $EXIT_CODE -eq 0 ]; then
+                echo "=========================================="
+                echo "✓ Initialization completed successfully!"
+                echo "=========================================="
+              else
+                echo "=========================================="
+                echo "✗ Initialization failed with exit code $EXIT_CODE"
+                echo "=========================================="
+              fi
+
+              exit $EXIT_CODE
+          env:
+            - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_HOST
+            - name: POSTGRES_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_PORT
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: init-script
+              mountPath: /scripts
+      volumes:
+        - name: init-script
+          configMap:
+            name: supabase-db-init

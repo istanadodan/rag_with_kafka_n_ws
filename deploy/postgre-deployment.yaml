@@ -21,14 +21,17 @@ spec:
             - containerPort: 5432
           volumeMounts:
             - name: db-storage
-              mountPath: /postgre/storage
-          env:
-            - name: POSTGRES_USER
-              value: postgres
-            - name: POSTGRES_PASSWORD
-              value: postgres
-            - name: POSTGRES_DB
-              value: postgres
+              mountPath: /var/lib/postgresql/data
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          # env:
+          #   - name: POSTGRES_USER
+          #     value: postgres
+          #   - name: POSTGRES_PASSWORD
+          #     value: postgres
+          #   - name: POSTGRES_DB
+          #     value: postgres
           resources:
             limits:
               cpu: "500m" # 0.5 cpu core

@@ -1,0 +1,285 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-kong
+  namespace: rag
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-kong
+  template:
+    metadata:
+      labels:
+        app: supabase-kong
+    spec:
+      containers:
+        - name: kong
+          image: kong:2.8-alpine
+          env:
+            - name: KONG_DATABASE
+              value: "off"
+            - name: KONG_DECLARATIVE_CONFIG
+              value: /home/kong/kong.yml
+            - name: KONG_DNS_ORDER
+              value: LAST,A,CNAME
+            - name: KONG_PLUGINS
+              value: request-transformer,cors,key-auth,acl
+          ports:
+            - containerPort: 8000
+              name: proxy
+            - containerPort: 8443
+              name: proxy-ssl
+          volumeMounts:
+            - name: kong-config
+              mountPath: /home/kong
+      volumes:
+        - name: kong-config
+          configMap:
+            name: kong-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-auth
+  namespace: rag
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-auth
+  template:
+    metadata:
+      labels:
+        app: supabase-auth
+    spec:
+      containers:
+        - name: auth
+          image: supabase/gotrue:v2.158.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9999
+          env:
+            - name: API_EXTERNAL_URL
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: API_EXTERNAL_URL
+            - name: GOTRUE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: JWT_SECRET
+            - name: GOTRUE_DB_DRIVER
+              value: "postgres"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: DATABASE_URL
+            - name: GOTRUE_SITE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: GOTRUE_SITE_URL
+            - name: GOTRUE_URI_ALLOW_LIST
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: GOTRUE_URI_ALLOW_LIST
+            - name: GOTRUE_DISABLE_SIGNUP
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: GOTRUE_DISABLE_SIGNUP
+            - name: GOTRUE_JWT_ADMIN_ROLES
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: GOTRUE_JWT_ADMIN_ROLES
+            - name: GOTRUE_JWT_AUD
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: GOTRUE_JWT_AUD
+            - name: GOTRUE_JWT_DEFAULT_GROUP_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: GOTRUE_JWT_DEFAULT_GROUP_NAME
+            - name: GOTRUE_EXTERNAL_EMAIL_ENABLED
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: GOTRUE_EXTERNAL_EMAIL_ENABLED
+            - name: GOTRUE_MAILER_AUTOCONFIRM
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: GOTRUE_MAILER_AUTOCONFIRM
+          resources:
+            limits:
+              cpu: "500m"
+              memory: 500Mi
+            requests:
+              cpu: "100m"
+              memory: 250Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-rest
+  namespace: rag
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-rest
+  template:
+    metadata:
+      labels:
+        app: supabase-rest
+    spec:
+      containers:
+        - name: rest
+          image: postgrest/postgrest:v12.2.3
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PGRST_DB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: PGRST_DB_URI
+            - name: PGRST_DB_SCHEMA
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: PGRST_DB_SCHEMA
+            - name: PGRST_DB_ANON_ROLE
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: PGRST_DB_ANON_ROLE
+            - name: PGRST_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: JWT_SECRET
+          resources:
+            limits:
+              cpu: "500m"
+              memory: 500Mi
+            requests:
+              cpu: "100m"
+              memory: 250Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-realtime
+  namespace: rag
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-realtime
+  template:
+    metadata:
+      labels:
+        app: supabase-realtime
+    spec:
+      containers:
+        - name: realtime
+          image: supabase/realtime:v2.30.23
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4000
+          env:
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_HOST
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_PORT
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_DB
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_PASSWORD
+            - name: DB_SSL
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: DB_SSL
+            - name: PORT
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: PORT
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: JWT_SECRET
+            - name: REPLICATION_MODE
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: REPLICATION_MODE
+            - name: REPLICATION_POLL_INTERVAL
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: REPLICATION_POLL_INTERVAL
+            - name: SECURE_CHANNELS
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: SECURE_CHANNELS
+            - name: SLOT_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: SLOT_NAME
+            - name: TEMPORARY_SLOT
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: TEMPORARY_SLOT
+            - name: SECRET_KEY_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: SECRET_KEY_BASE
+            # 파일 디스크립터 제한 (필수)
+            - name: RLIMIT_NOFILE
+              value: "65536"
+            # 애플리케이션 이름 (필수)
+            - name: APP_NAME
+              value: "realtime"
+            # DNS 클러스터 쿼리 (필수)
+            - name: DNS_NODES
+              value: ""
+          resources:
+            limits:
+              cpu: "500m"
+              memory: 500Mi
+            requests:
+              cpu: "100m"
+              memory: 250Mi
