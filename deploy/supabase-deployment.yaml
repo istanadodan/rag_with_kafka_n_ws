@@ -117,6 +117,8 @@ spec:
                 secretKeyRef:
                   name: supabase-secrets
                   key: GOTRUE_MAILER_AUTOCONFIRM
+            - name: GOTRUE_DB_SCHEMA
+              value: "auth"
           resources:
             limits:
               cpu: "500m"
@@ -276,6 +278,8 @@ spec:
             # DNS 클러스터 쿼리 (필수)
             - name: DNS_NODES
               value: ""
+            - name: GOTRUE_DB_SCHEMA
+              value: "auth"
           resources:
             limits:
               cpu: "500m"

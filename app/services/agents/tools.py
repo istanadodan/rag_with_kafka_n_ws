@@ -3,7 +3,10 @@ import pandas as pd
 import PyPDF2
 import requests
 from bs4 import BeautifulSoup
-from typing import Dict, Any
+from typing import Dict, Any, List
+import json
+import pandas as pd
+import numpy as np
 import json
 
 
@@ -127,5 +130,107 @@ def create_data_collection_tools() -> list[Tool]:
             name="scrape_web",
             func=DataCollectionTools.scrape_web_data,
             description="웹 페이지에서 테이블과 텍스트를 추출합니다. 입력: URL",
+        ),
+    ]
+
+
+class AnalysisTools:
+    """데이터 분석 도구"""
+
+    @staticmethod
+    def calculate_statistics(data: str) -> str:
+        """기본 통계 계산"""
+        try:
+            df = pd.DataFrame(json.loads(data))
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+
+            stats = {}
+            for col in numeric_cols:
+                stats[col] = {
+                    "mean": float(df[col].mean()),
+                    "median": float(df[col].median()),
+                    "std": float(df[col].std()),
+                    "min": float(df[col].min()),
+                    "max": float(df[col].max()),
+                }
+
+            return json.dumps({"success": True, "statistics": stats})
+        except Exception as e:
+            return json.dumps({"success": False, "error": str(e)})
+
+    @staticmethod
+    def detect_trends(data: str, time_column: str, value_column: str) -> str:
+        """트렌드 감지"""
+        try:
+            df = pd.DataFrame(json.loads(data))
+            df[time_column] = pd.to_datetime(df[time_column])
+            df = df.sort_values(time_column)
+
+            # 단순 선형 회귀로 트렌드 계산
+            x = np.asarray(len(df), dtype=float)
+            y = np.asarray(df[value_column].values, dtype=float)
+            slope = np.polyfit(x, y, 1)[0]
+
+            trend = (
+                "increasing" if slope > 0 else "decreasing" if slope < 0 else "stable"
+            )
+
+            return json.dumps(
+                {
+                    "success": True,
+                    "trend": trend,
+                    "slope": float(slope),
+                    "change_percentage": float((y[-1] - y[0]) / y[0] * 100),
+                }
+            )
+        except Exception as e:
+            return json.dumps({"success": False, "error": str(e)})
+
+    @staticmethod
+    def find_outliers(data: str, column: str) -> str:
+        """이상치 탐지 (IQR 방법)"""
+        try:
+            df = pd.DataFrame(json.loads(data))
+            Q1 = df[column].quantile(0.25)
+            Q3 = df[column].quantile(0.75)
+            IQR = Q3 - Q1
+
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+
+            outliers = df[(df[column] < lower_bound) | (df[column] > upper_bound)]
+
+            return json.dumps(
+                {
+                    "success": True,
+                    "outliers_count": len(outliers),
+                    "outliers": outliers.to_dict("records"),
+                    "bounds": {
+                        "lower": float(lower_bound),
+                        "upper": float(upper_bound),
+                    },
+                }
+            )
+        except Exception as e:
+            return json.dumps({"success": False, "error": str(e)})
+
+
+def create_analysis_tools() -> List[Tool]:
+    """분석 도구 생성"""
+    return [
+        Tool(
+            name="calculate_statistics",
+            func=AnalysisTools.calculate_statistics,
+            description="데이터의 기본 통계량을 계산합니다. 입력: JSON 형식의 데이터",
+        ),
+        Tool(
+            name="detect_trends",
+            func=lambda x: AnalysisTools.detect_trends(*x.split("|||")),
+            description="시계열 데이터의 트렌드를 감지합니다. 입력: 'data|||time_column|||value_column'",
+        ),
+        Tool(
+            name="find_outliers",
+            func=lambda x: AnalysisTools.find_outliers(*x.split("|||")),
+            description="데이터에서 이상치를 찾습니다. 입력: 'data|||column'",
         ),
     ]

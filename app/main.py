@@ -1,12 +1,14 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import asyncio
-import logging
 import core.config as config
 from core.config import settings
 from core.logging import setup_logging
+from utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
+# logging setup
+setup_logging(settings.log_level)
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -60,8 +62,6 @@ def create_app() -> FastAPI:
     from core.middleware.access_log import access_logging_middleware
     from core.exception.handlers import get_exception_handlers
     from api.v1.api_route import router as api_router
-
-    setup_logging(settings.log_level)
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan, root_path="/rag-api")
     # --- middlewares ---

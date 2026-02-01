@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from schemas.base import AppBaseModel, MetaResponse
 from pydantic import Field
 from services.dto.rag import RagHit
@@ -19,8 +19,10 @@ class QueryByRagRequest(AppBaseModel):
     )
 
 
-class QueryByRagResponse(AppBaseModel):
-    trace_id: str
+from datetime import datetime
+
+
+class QueryByRagResponse(MetaResponse):
     result: str = Field(default="OK")
 
 
@@ -29,8 +31,7 @@ class AgentRequest(AppBaseModel):
     llm: str
 
 
-class AgentResponse(AppBaseModel):
-    trace_id: str
+class AgentResponse(MetaResponse):
     result: dict = Field(default_factory=dict)
     hits: List = Field(default_factory=list)
 
@@ -45,8 +46,7 @@ class QueryVdbRequest(AppBaseModel):
     retriever: str = "qdrant"
 
 
-class QueryVdbResponse(AppBaseModel):
+class QueryVdbResponse(MetaResponse):
     result: str
     hits: List[RagHit]
-    trace_id: str
     model_config = {"extra": "ignore"}

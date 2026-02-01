@@ -36,8 +36,6 @@ spec:
           #   requests:
           #     cpu: 100m
           env:
-            - name: LOG_LEVEL
-              value: "INFO"
             - name: QDRANT_PORT
               value: "6333"
             - name: QDRANT_URL

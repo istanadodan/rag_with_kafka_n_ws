@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+  <button onclick="test()">Test profiles</button>
+  <pre id="result">대기중...</pre>
+
+  <script>
+    // CDN supabase 전역 사용
+    const { createClient } = supabase;
+
+    const supabaseClient = createClient('http://rag-api.local/',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvY2FsaG9zdCIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjQxNzY5MjAwLCJleHAiOjE5NTczNDUyMDB9.nsv6ak_BFsjGN9cQ3BzYN35ZExCLgXF8E7O1tx55MSs'
+    );
+
+    // 전역 함수로 onclick 접근 가능
+    window.test = function () {
+      document.getElementById('result').textContent = '로딩...';
+      supabaseClient
+        .from('profiles')
+        .select('*')
+        .then(({ data, error }) => {
+          document.getElementById('result').textContent =
+            error ? `❌ ${error.message}` :
+              data?.length ? JSON.stringify(data, null, 2) :
+                '✅ 연결 성공! 테이블 비어있음';
+        })
+        .catch(e => document.getElementById('result').textContent = `💥 ${e.message}`);
+    };
+  </script>
+</body>
+
+</html>

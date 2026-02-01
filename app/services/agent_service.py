@@ -30,7 +30,10 @@ class AgentService:
         llm_model: str = "studio",
     ) -> QueryByRagResult:
         # 프롬프트 생성
-        from services.agents.agent import DataCollectorAgent, StateGraphInterface
+        from services.agents.collector_agent import (
+            DataCollectorAgent,
+            StateGraphInterface,
+        )
 
         agent: StateGraphInterface = DataCollectorAgent(llm_model)
         r = agent.run(

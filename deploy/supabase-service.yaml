@@ -25,7 +25,7 @@ spec:
   type: ClusterIP
   ports:
     - port: 9999
-      targetPort: 9999
+      targetPort: 8081
       protocol: TCP
   selector:
     app: supabase-auth

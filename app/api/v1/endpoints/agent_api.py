@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Body
-from api.schema import AgentResponse, AgentRequest
+from schemas.api.schema import AgentResponse, AgentRequest
 from core.middleware.trace_id import get_trace_id
 from services.agent_service import AgentService
 

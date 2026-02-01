@@ -6,7 +6,7 @@ metadata:
   annotations:
     # nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
     # nginx.ingress.kubernetes.io/proxy-write-timeout: "60"
-    # nginx.ingress.kubernetes.io/rewrite-target: /$1
+    # nginx.ingress.kubernetes.io/rewrite-target: /$2
     # nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "100m"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
@@ -32,5 +32,12 @@ spec:
             backend:
               service:
                 name: rag-api
+                port:
+                  number: 8000
+          - path: /rest/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: supabase-kong
                 port:
                   number: 8000

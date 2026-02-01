@@ -7,7 +7,7 @@ from starlette.background import BackgroundTasks
 from core.config import settings
 from api.deps import get_rag_service, find_trace_id
 from infra.schema import StompFrameModel
-from api.schema import (
+from schemas.api.schema import (
     RagPipelineResponse,
     QueryByRagRequest,
     QueryByRagResponse,

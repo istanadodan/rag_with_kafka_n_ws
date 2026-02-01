@@ -1,4 +1,3 @@
-from langchain_openai import ChatOpenAI
 from core.config import settings
 from langchain_core.tools import Tool
 from services.agents.tools import create_data_collection_tools
@@ -6,15 +5,15 @@ from langgraph.graph.state import StateGraph, CompiledStateGraph, END
 from schemas.agent import CollectorState, StateGraphInterface
 from utils.logging import get_logger, log_execution_block
 from langchain_core.prompts import ChatPromptTemplate
+from services.llm.llm_provider import select_llm
 
 logger = get_logger(__name__)
 
 
 class DataCollectorAgent:
-    def __init__(self, llm_model: str | None = None):
-        from services.llm.llm_provider import select_llm
+    def __init__(self, llm_model: str):
 
-        self.llm = select_llm(llm_name=llm_model or settings.llm_model_name)
+        self.llm = select_llm(llm_name=llm_model)
         self.tools: list[Tool] = create_data_collection_tools()
         self.tool_map = {tool.name: tool for tool in self.tools}
         self.graph = self._build_graph()
@@ -42,8 +41,8 @@ class DataCollectorAgent:
 
     # 입력데이터 유효성체크 후 다음스텝으로 넘김
     # 유효성오류인 경우,
-    @log_execution_block("Agent:check_data_source")
-    def check_data_source(self, state: CollectorState):
+    @log_execution_block(title="Agent:check_data_source")
+    def check_data_source(self, state: CollectorState) -> CollectorState:
         """Step1: 현재 데이터 소스확인"""
         idx = state.current_source_index
         sources = state.data_sources
@@ -55,9 +54,9 @@ class DataCollectorAgent:
         )
         return state
 
-    @log_execution_block("Agent:select_extraction_tool")
-    def select_extraction_tool(self, state: CollectorState):
-        """Step2: 저절한 추출 도구 선택"""
+    @log_execution_block(title="Agent:select_extraction_tool")
+    def select_extraction_tool(self, state: CollectorState) -> CollectorState:
+        """Step2: 적절한 추출 도구 선택"""
 
         source_type = state.data_sources[state.current_source_index].get(
             "source_type", ""
@@ -79,8 +78,8 @@ class DataCollectorAgent:
 사용 가능한 도구:
 {tools}
 
-가장 적합한 도구명은 무엇인가요? 
-생각한 내용중에 도구명만 추출해 반환하세요.
+가장 적합한 도구명를 찾을 것. 
+생각한 내용에서 도구명만 추출해 반환하세요.
 """,
                 ),
             ]
@@ -106,7 +105,7 @@ class DataCollectorAgent:
         )
         return state
 
-    @log_execution_block("Agent:extract_data")
+    @log_execution_block(title="Agent:extract_data")
     def extract_data(self, state: CollectorState):
         """Step3: 툴을 사용해서 파싱"""
         logger.info(f"Extracting data using {state}")
@@ -143,7 +142,7 @@ class DataCollectorAgent:
 
         return state
 
-    @log_execution_block("Agent:validate_data")
+    @log_execution_block(title="Agent:validate_data")
     def validate_data(self, state: CollectorState):
         """Step4: 추출된 데이터 검증"""
         idx = state.current_source_index
