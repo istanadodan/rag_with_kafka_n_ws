@@ -34,10 +34,10 @@ spec:
                 name: rag-api
                 port:
                   number: 8000
-          - path: /rest/v1
+          - path: /project
             pathType: Prefix
             backend:
               service:
-                name: supabase-kong
+                name: supabase-studio
                 port:
-                  number: 8000
+                  number: 5000

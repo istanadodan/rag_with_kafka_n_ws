@@ -11,3 +11,12 @@ spec:
     - port: 5432
       targetPort: 5432
       name: tcp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: rag
+spec:
+  type: ExternalName
+  externalName: postgre.rag.svc.cluster.local

@@ -36,7 +36,12 @@ class CommandDispatcher:
                 result = await __handler(stomp.model_dump())
                 if result:
                     await ws_manager.broadcast(
-                        dict(value=dict(answer=f"{stomp.body}: upload completed.")),
+                        dict(
+                            value=dict(
+                                answer=f"{stomp.body}: upload completed.",
+                                hits=[],
+                            ),
+                        ),
                         lambda x: True,
                     )
             except Exception as e:
@@ -73,4 +78,4 @@ class CommandDispatcher:
                 dict(value=result.model_dump()),
                 lambda x: True,
             )
-            logger.info("websocket broadcast completed")
+            logger.info(f"websocket broadcast completed: {result.model_dump()}")

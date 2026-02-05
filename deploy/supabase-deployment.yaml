@@ -41,6 +41,120 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: supabase-studio
+  namespace: rag
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-studio
+  template:
+    metadata:
+      labels:
+        app: supabase-studio
+    spec:
+      containers:
+        - name: studio
+          image: supabase/studio:latest
+          env:
+            - name: STUDIO_PG_META_URL
+              value: "http://meta.rag:8080"
+            - name: EDGE_FUNCTIONS_MANAGEMENT_FOLDER
+              value: "/app/edge-functions"
+            - name: SNIPPETS_MANAGEMENT_FOLDER
+              value: "/app/snippets"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: OPENAI_API_KEY
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_PASSWORD
+            - name: SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: SUPABASE_URL
+            - name: SERVICE_ROLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: SERVICE_ROLE_KEY
+          volumeMounts:
+            - name: edge-functions
+              mountPath: /app/edge-functions
+          ports:
+            - containerPort: 3000
+              name: proxy
+      volumes:
+        - name: edge-functions
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-meta
+  namespace: rag
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-meta
+  template:
+    metadata:
+      labels:
+        app: supabase-meta
+    spec:
+      containers:
+        - name: meta
+          image: supabase/postgres-meta:v0.95.2
+          env:
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_HOST
+            - name: PG_META_HOST
+              value: 0.0.0.0
+            - name: PG_META_PORT
+              value: "8080"
+            - name: PG_META_DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_HOST
+            - name: PG_META_DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_PORT
+            - name: PG_META_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_DB
+            - name: PG_META_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_USER
+            - name: PG_META_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: POSTGRES_PASSWORD
+            - name: PG_META_DB_SSL
+              value: "false"
+          ports:
+            - containerPort: 8080
+              name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: supabase-auth
   namespace: rag
 spec:

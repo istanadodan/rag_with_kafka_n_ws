@@ -4,6 +4,7 @@ from schemas.source import ParentDocumentDto
 from sqlalchemy import select, Sequence
 from langchain_core.documents import Document
 import ast
+import json
 
 
 class ParentDocumentRepository:
@@ -18,8 +19,12 @@ class ParentDocumentRepository:
         return user
 
     async def add_all(self, docs: list[Document]) -> list[Document]:
+
         models = [
-            ParentDocument(content=doc.page_content, mdata=str(doc.metadata))
+            ParentDocument(
+                content=doc.page_content,
+                mdata=doc.metadata,
+            )
             for doc in docs
         ]
         self.db.add_all(models)
@@ -30,7 +35,8 @@ class ParentDocumentRepository:
         return [
             Document(
                 page_content=d.content,
-                metadata={**ast.literal_eval(d.mdata), "parent_id": d.id},
+                metadata={**d.mdata, "parent_id": d.id},
+                # metadata={**ast.literal_eval(d.mdata), "parent_id": d.id},
             )
             for d in models
         ]
